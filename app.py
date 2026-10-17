@@ -57,11 +57,10 @@ menu = st.sidebar.radio("Navigation", [
     "Préparation Budget (FO_30)"
 ])
 
-# --- 3. MODULE : TABLEAU DE BORD (AVEC GRAPHIQUES) ---
+# --- 3. MODULE : TABLEAU DE BORD ---
 if menu == "Tableau de Bord ISPO":
     st.title("Tableau de Bord & Alertes ISPO")
     
-    # KPIs Alertes
     df_epi = pd.read_sql_query("SELECT * FROM epis", conn)
     df_pharma = pd.read_sql_query("SELECT * FROM consommables WHERE classe='Pharmacie'", conn)
     
@@ -89,7 +88,6 @@ if menu == "Tableau de Bord ISPO":
     else:
         st.success("✅ Aucun équipement critique n'arrive à expiration prochainement.")
 
-    # Data Visualisation
     st.markdown("---")
     st.subheader("Analyse Visuelle (Données ISPO)")
     col_chart1, col_chart2 = st.columns(2)
@@ -114,7 +112,7 @@ if menu == "Tableau de Bord ISPO":
         else:
             st.info("Aucun relevé de pilotine.")
 
-# --- 4. MODULE : INFRASTRUCTURES, VIGIE & AMEUBLEMENT ---
+# --- 4. MODULE : INFRASTRUCTURES, VIGIE & ÉQUIPEMENTS ---
 elif menu == "Infrastructures, Vigie & Équipements":
     st.title("Infrastructures & Équipements (FO_23, 24, 25)")
     
@@ -144,7 +142,22 @@ elif menu == "Infrastructures, Vigie & Équipements":
     
     if not df_infra.empty:
         excel_data = to_excel(df_infra)
-        st.download_button(label="📥 Exporter vers Excel (Archivage ISPO)", data=excel_data, file_name='Registre_Equipements.xlsx', mime='application/vnd.ms-excel')
+        st.download_button(label="📥 Exporter vers Excel", data=excel_data, file_name='Registre_Equipements.xlsx', mime='application/vnd.ms-excel')
+        
+        st.markdown("---")
+        st.subheader("⚙️ Gestion (Modifier ou Supprimer)")
+        with st.form("form_mod_del_infra"):
+            id_sel = st.selectbox("Sélectionner l'ID à modifier/supprimer", df_infra['id'].tolist())
+            action = st.radio("Action", ["Supprimer", "Mettre à jour l'état"])
+            nouvel_etat = st.selectbox("Nouvel état (si mise à jour)", ["Bon", "Moyen", "À réparer"])
+            
+            if st.form_submit_button("Exécuter l'action"):
+                if action == "Supprimer":
+                    c.execute("DELETE FROM equipements_infrastructures WHERE id = ?", (id_sel,))
+                else:
+                    c.execute("UPDATE equipements_infrastructures SET etat = ? WHERE id = ?", (nouvel_etat, id_sel))
+                conn.commit()
+                st.success("Opération réussie ! Actualisez la page.")
 
 # --- 5. MODULE : CONSOMMABLES & PHARMACIE ---
 elif menu == "Consommables & Pharmacie":
@@ -169,13 +182,23 @@ elif menu == "Consommables & Pharmacie":
                       (classe, article, q_debut, q_livre, q_fin, prix_u, date_exp))
             conn.commit()
             st.success("Consommable enregistré !")
-
-    df_conso = pd.read_sql_query("SELECT article, quantite_debut, livre_periode, quantite_fin, (quantite_debut + livre_periode - quantite_fin) as Consommé, ((quantite_debut + livre_periode - quantite_fin) * prix_unitaire) as Cout_Total FROM consommables", conn)
+            
+    df_conso_show = pd.read_sql_query("SELECT * FROM consommables", conn)
+    df_conso = pd.read_sql_query("SELECT id, article, quantite_debut, livre_periode, quantite_fin, (quantite_debut + livre_periode - quantite_fin) as Consommé, ((quantite_debut + livre_periode - quantite_fin) * prix_unitaire) as Cout_Total FROM consommables", conn)
     st.dataframe(df_conso, use_container_width=True)
     
     if not df_conso.empty:
         excel_data = to_excel(df_conso)
         st.download_button(label="📥 Exporter vers Excel", data=excel_data, file_name='Etat_Consommables.xlsx', mime='application/vnd.ms-excel')
+        
+        st.markdown("---")
+        st.subheader("⚙️ Gestion (Supprimer)")
+        with st.form("form_del_conso"):
+            id_sel = st.selectbox("Sélectionner l'ID à supprimer", df_conso_show['id'].tolist())
+            if st.form_submit_button("Supprimer cet article"):
+                c.execute("DELETE FROM consommables WHERE id = ?", (id_sel,))
+                conn.commit()
+                st.success("Supprimé avec succès ! Actualisez la page.")
 
 # --- 6. MODULE : SUIVI PILOTINE ---
 elif menu == "Suivi Pilotine":
@@ -203,6 +226,15 @@ elif menu == "Suivi Pilotine":
     if not df_pil.empty:
         excel_data = to_excel(df_pil)
         st.download_button(label="📥 Exporter vers Excel", data=excel_data, file_name='Suivi_Pilotine.xlsx', mime='application/vnd.ms-excel')
+        
+        st.markdown("---")
+        st.subheader("⚙️ Gestion (Supprimer)")
+        with st.form("form_del_pil"):
+            id_sel = st.selectbox("Sélectionner l'ID à supprimer", df_pil['id'].tolist())
+            if st.form_submit_button("Supprimer ce relevé"):
+                c.execute("DELETE FROM pilotine WHERE id = ?", (id_sel,))
+                conn.commit()
+                st.success("Supprimé avec succès ! Actualisez la page.")
 
 # --- 7. MODULE : SÉCURITÉ & EPI ---
 elif menu == "Sécurité & EPI":
@@ -228,12 +260,21 @@ elif menu == "Sécurité & EPI":
             conn.commit()
             st.success("EPI enregistré !")
             
-    df_epi_show = pd.read_sql_query("SELECT article, nombre_utilisation, echeance_utilisation, nombre_stock, echeance_stock, cout FROM epis", conn)
+    df_epi_show = pd.read_sql_query("SELECT * FROM epis", conn)
     st.dataframe(df_epi_show, use_container_width=True)
     
     if not df_epi_show.empty:
         excel_data = to_excel(df_epi_show)
         st.download_button(label="📥 Exporter vers Excel", data=excel_data, file_name='Registre_EPI.xlsx', mime='application/vnd.ms-excel')
+        
+        st.markdown("---")
+        st.subheader("⚙️ Gestion (Supprimer)")
+        with st.form("form_del_epi"):
+            id_sel = st.selectbox("Sélectionner l'ID à supprimer", df_epi_show['id'].tolist())
+            if st.form_submit_button("Supprimer cet EPI"):
+                c.execute("DELETE FROM epis WHERE id = ?", (id_sel,))
+                conn.commit()
+                st.success("Supprimé avec succès ! Actualisez la page.")
 
 # --- 8. MODULE : BUDGET ---
 elif menu == "Préparation Budget (FO_30)":
