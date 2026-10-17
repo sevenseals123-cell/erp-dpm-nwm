@@ -4,35 +4,156 @@ from datetime import datetime, date, timedelta
 import sqlite3
 import plotly.express as px
 from io import BytesIO
+from PIL import Image, ImageDraw, ImageFont
+import base64
+import os
 
 # ==============================================================================
-# 1. CONFIGURATION DE LA PAGE & STYLE PROFESSIONNEL
+# 1. CONFIGURATION DE LA PAGE & GESTION DU LOGO OFFICIEL NADOR WEST MED
 # ==============================================================================
 st.set_page_config(
-    page_title="DPM Nador West Med - ERP Ressources Matérielles (SM ISPO)",
+    page_title="DPM Nador West Med | ERP Ressources Matérielles ISPO",
     page_icon="⚓",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
+LOGO_FILE = "logo.png"
+
+def generate_nwm_logo_png_bytes():
+    """
+    Charge le fichier logo.png (s'il est présent sur GitHub ou chargé via l'interface),
+    sinon génère en mémoire le logo officiel Nador West Med en PNG haute résolution
+    pour l'affichage Web et l'insertion dans les cartouches Excel.
+    """
+    for candidate in ["logo.png", "image_315546.png", "nwm_logo.png"]:
+        if os.path.exists(candidate):
+            with open(candidate, "rb") as f:
+                return f.read()
+
+    # Génération graphique haute définition du logo Nador West Med (PNG transparent)
+    w, h = 420, 210
+    img = Image.new("RGBA", (w, h), (255, 255, 255, 0))
+    draw = ImageDraw.Draw(img)
+
+    # Arc orbital externe bleu marine (#1B3668)
+    draw.arc([14, 10, 195, 191], start=115, end=330, fill=(27, 54, 104, 255), width=6)
+
+    # Sphère maritime (cercle principal scindé en quartiers cobalt & turquoise)
+    globe_box = [32, 28, 168, 164]
+    draw.pieslice(globe_box, start=180, end=295, fill=(43, 108, 176, 255))     # Bleu cobalt NWM
+    draw.pieslice(globe_box, start=295, end=360, fill=(30, 78, 140, 255))      # Bleu profond NWM
+    draw.pieslice(globe_box, start=0, end=180, fill=(0, 163, 180, 255))        # Turquoise NWM
+
+    # Méridiens blancs croisés du globe NWM
+    draw.arc([20, 48, 190, 195], start=195, end=340, fill=(255, 255, 255, 255), width=5)
+    draw.arc([58, -10, 195, 180], start=115, end=235, fill=(255, 255, 255, 255), width=5)
+
+    # Typographie officielle "NADOR" (Turquoise) & "WEST MED" (Bleu Marine)
+    try:
+        font_nador = ImageFont.truetype("DejaVuSans-Bold.ttf", 40)
+        font_west = ImageFont.truetype("DejaVuSans-Bold.ttf", 31)
+    except Exception:
+        font_nador = ImageFont.load_default()
+        font_west = ImageFont.load_default()
+
+    draw.text((118, 118), "NADOR", fill=(0, 151, 167, 255), font=font_nador)
+    draw.text((118, 162), "WEST MED", fill=(27, 54, 104, 255), font=font_west)
+
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+def get_logo_base64():
+    return base64.b64encode(generate_nwm_logo_png_bytes()).decode("utf-8")
+
+# Styles CSS Institutionnels Nador West Med
 st.markdown("""
-    <style>
-    .main-header {
-        background: linear-gradient(90deg, #0b2545 0%, #134074 100%);
-        color: white;
-        padding: 1.2rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
+<style>
+    .block-container { padding-top: 1.1rem; padding-bottom: 2rem; }
+    
+    .nwm-banner {
+        background: linear-gradient(135deg, #071930 0%, #0f3156 58%, #00798c 100%);
+        color: #ffffff;
+        padding: 1.2rem 1.8rem;
+        border-radius: 12px;
+        border-left: 6px solid #00a3b4;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
-    .main-header h2 { color: white; margin: 0; font-size: 1.6rem; }
-    .main-header p { color: #eef4ed; margin: 0.2rem 0 0 0; font-size: 0.95rem; }
-    </style>
+    .nwm-banner-left {
+        display: flex;
+        align-items: center;
+        gap: 1.2rem;
+    }
+    .nwm-logo-box {
+        background: #ffffff;
+        padding: 0.45rem 0.75rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .nwm-banner h1 {
+        color: #ffffff;
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    .nwm-banner p {
+        color: #e0f2fe;
+        font-size: 0.9rem;
+        margin: 0.25rem 0 0 0;
+    }
+    .nwm-badge {
+        background-color: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        color: #ffffff;
+        padding: 0.5rem 0.95rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .kpi-card {
+        background: #ffffff;
+        border-radius: 10px;
+        padding: 1.1rem 1.3rem;
+        border: 1px solid #e2e8f0;
+        border-top: 4px solid #0f3156;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        margin-bottom: 0.8rem;
+    }
+    .kpi-card.alert { border-top-color: #d9534f; background: #fffafa; }
+    .kpi-card.ok { border-top-color: #0097a7; }
+    .kpi-card.gold { border-top-color: #1b3668; }
+    .kpi-title { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.4px; }
+    .kpi-value { font-size: 1.6rem; font-weight: 800; color: #0f3156; margin: 0.25rem 0; }
+    .kpi-sub { font-size: 0.78rem; color: #475569; }
+
+    .form-header {
+        background-color: #f0f7fa;
+        border-left: 5px solid #0097a7;
+        padding: 0.65rem 1rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        font-weight: 700;
+        color: #0f3156;
+    }
+</style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 2. BASE DE DONNÉES SQLITE & PRÉ-CHARGEMENT INITIAL (VHF SOREMAR)
+# 2. BASE DE DONNÉES SQLITE & PRÉ-CHARGEMENT OFFICIEL (VHF SOREMAR)
 # ==============================================================================
-conn = sqlite3.connect('dpm_nwm_ispo_erp.db', check_same_thread=False)
+DB_FILE = 'dpm_nwm_ispo_erp.db'
+conn = sqlite3.connect(DB_FILE, check_same_thread=False)
 c = conn.cursor()
 
 def init_db():
@@ -48,7 +169,7 @@ def init_db():
         observations TEXT
     )''')
 
-    # DPM_FO_24 & DPM_FO_25 & Classes DMP_PR_02 : Ameublement, Vigie, VHF, PPUs, Simulateur, Voitures
+    # DPM_FO_24, DPM_FO_25 & Classes DMP_PR_02
     c.execute('''CREATE TABLE IF NOT EXISTS fo24_25_equipements (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         classe TEXT,
@@ -118,7 +239,7 @@ def init_db():
         observations TEXT
     )''')
 
-    # DPM_FO_30 : Préparation du Budget (Prévisions & Investissements)
+    # DPM_FO_30 : Le Formulaire de Préparation du Budget
     c.execute('''CREATE TABLE IF NOT EXISTS fo30_budget_lignes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         type_ligne TEXT,
@@ -133,7 +254,7 @@ def init_db():
         observations TEXT
     )''')
 
-    # DPM_CL_06 & DPM_CL_07 : Checklists Spécifications d'Achat & Maintenance/Utilisation
+    # DPM_CL_06 & DPM_CL_07 : Checklists
     c.execute('''CREATE TABLE IF NOT EXISTS cl06_07_checklists (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         type_checklist TEXT,
@@ -146,14 +267,12 @@ def init_db():
     conn.commit()
 
 def seed_initial_data():
-    """Pré-charge la réception officielle des VHF SOREMAR si la table est vide."""
     c.execute("SELECT COUNT(*) FROM fo24_25_equipements")
     if c.fetchone()[0] == 0:
         serials_vhf = [
             "627RBX0048", "627RBX0057", "627RBX0067", "627RBX0104", "627TUT2578",
             "627RBX0029", "627RBX0033", "627RBX0035", "627RBX0039", "627RBX0045"
         ]
-        # Insertion des 10 Radios VHF Motorola DP4801 ATEX (15 800 MAD HT / unité)
         for idx, sn in enumerate(serials_vhf, start=1):
             c.execute('''INSERT INTO fo24_25_equipements (
                 classe, article, reference_serie, cout_estime,
@@ -163,17 +282,16 @@ def seed_initial_data():
                 date_reception, echeance_garantie, observations
             ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (
                 "Radios Portatifs VHF",
-                f"Radio VHF Marine ATEX Motorola DP4801 Ex #{idx:02d}",
-                f"S/N: {sn} (Code C0100087)",
+                f"Radio VHF Marine ATEX Motorola DP4801 Ex #{idx:02d} (S/N: {sn})",
+                sn,
                 15800.00,
-                "Bon", 1, "Station de Pilotage / Pilotes",
+                "Bon", 1, "Station de Pilotage / Vigie",
                 0, "Magasin DPM",
-                "Aucun", "Aucune",
+                "Non", "Non",
                 "2026-10-15", "2028-10-15",
-                "BC N°20260014 | BL-CAS2610/0453 | Facture F-RAD26/0024 SOREMAR | PV Réception Définitive du 15/10/2026 (Garantie 2 ans)"
+                "BC N°20260014 | BL-CAS2610/0453 | Facture F-RAD26/0024 SOREMAR | PV Réception du 15/10/2026 (Garantie 2 ans)"
             ))
 
-        # Insertion des 15 Batteries de rechange ATEX DP4401 (57 750 MAD HT total)
         c.execute('''INSERT INTO fo24_25_equipements (
             classe, article, reference_serie, cout_estime,
             util_etat, util_quantite, util_emplacement,
@@ -182,17 +300,16 @@ def seed_initial_data():
             date_reception, echeance_garantie, observations
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (
             "Radios Portatifs VHF",
-            "Batterie de rechange ATEX DP4401 (Lot de 15)",
-            "Code C0113530 (PU: 3 850,00 MAD)",
+            "Batteries de rechange ATEX DP4401 (Lot de 15 unités)",
+            "Code C0113530",
             57750.00,
-            "Bon", 10, "En service avec VHF",
+            "Bon", 10, "En service sur VHF",
             5, "Armoire de charge Vigie",
-            "Aucun", "Aucune",
+            "Non", "Non",
             "2026-10-15", "2028-10-15",
-            "BC N°20260014 | Facture F-RAD26/0024 SOREMAR | 15 unités à 3 850 MAD HT"
+            "BC N°20260014 | Facture F-RAD26/0024 SOREMAR (PU HT : 3 850,00 MAD)"
         ))
 
-        # Insertion des accessoires inclus (Housses & IMPRES ATEX Noise Can)
         c.execute('''INSERT INTO fo24_25_equipements (
             classe, article, reference_serie, cout_estime,
             util_etat, util_quantite, util_emplacement,
@@ -201,32 +318,30 @@ def seed_initial_data():
             date_reception, echeance_garantie, observations
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (
             "Radios Portatifs VHF",
-            "Accessoires VHF : 10 Housses FUNDA DURA + 10 Motorola IMPRES ATEX Noise Can",
-            "Codes C0126461 & C0326460",
+            "Accessoires VHF : 10 Housses FUNDA DURA + 10 Modules Motorola IMPRES ATEX Noise Can",
+            "C0126461 / C0326460",
             0.00,
             "Bon", 10, "Station de Pilotage",
             0, "Magasin DPM",
-            "Aucun", "Aucune",
+            "Non", "Non",
             "2026-10-15", "2028-10-15",
-            "Inclus dans le pack VHF BC N°20260014 (BL-CAS2610/0453)"
+            "Inclus sans surcoût dans BC N°20260014 / BL-CAS2610/0453"
         ))
 
-    # Pré-chargement Checklists CL_06 & CL_07 pour les VHF ATEX si vide
     c.execute("SELECT COUNT(*) FROM cl06_07_checklists")
     if c.fetchone()[0] == 0:
         c.execute('''INSERT INTO cl06_07_checklists (
             type_checklist, equipement_rubrique, specifications_achat,
             recommandations_utilisation, recommandations_maintenance, observations
         ) VALUES (?,?,?,?,?,?)''', (
-            "DPM_CL_06 & DPM_CL_07 (Critique)",
+            "DPM_CL_06 & DPM_CL_07",
             "Radios Portatifs VHF Marines ATEX (Motorola DP4801 Ex)",
-            "Certification ATEX poussières/gaz, étanchéité IP67, bande VHF marine 136-174 MHz, GPS intégré, chargeurs IMPRES, garantie min. 2 ans.",
-            "Utiliser exclusivement avec la batterie ATEX DP4401 et la housse de protection. Vérifier le niveau de charge avant chaque manœuvre.",
-            "Ne jamais ouvrir ou charger en atmosphère explosive. Nettoyer les contacts à l'eau douce après exposition saline. Contrôle annuel d'étanchéité.",
-            "Fournisseur : SOREMAR (Beni Ansar / Casablanca)"
+            "Certification ATEX gaz/poussières, étanchéité IP67, fréquences marines VHF, GPS intégré, accessoires IMPRES ATEX, garantie 24 mois.",
+            "Utiliser exclusivement avec batterie ATEX DP4401 et housse cuir. Vérifier la charge avant chaque embarquement pilote.",
+            "Ne jamais recharger ou remplacer la batterie en zone ATEX. Rinçage doux (chiffon humide) après exposition aux embruns salins.",
+            "Fournisseur agréé : SOREMAR"
         ))
 
-    # Pré-chargement de la ligne budgétaire VHF dans FO_30 si vide
     c.execute("SELECT COUNT(*) FROM fo30_budget_lignes")
     if c.fetchone()[0] == 0:
         c.execute('''INSERT INTO fo30_budget_lignes (
@@ -236,8 +351,8 @@ def seed_initial_data():
         ) VALUES (?,?,?,?,?,?,?,?,?,?)''', (
             "Investissement",
             "Radios Portatifs VHF",
-            "Acquisition de 10 Radios VHF portatives marines ATEX + 15 Batteries de rechange",
-            "Dotation initiale de sécurité pour les opérations de pilotage maritime à Nador West Med",
+            "Dotation de 10 Radios VHF portatives marines ATEX + 15 Batteries de rechange",
+            "Équipement critique de radiocommunication pour la sécurité des manœuvres de pilotage (SM ISPO)",
             21575.00, 10.0, 215750.00,
             0.0, 0.0,
             "BC N°20260014 - Facture SOREMAR F-RAD26/0024 (215 750,00 MAD TTC)"
@@ -246,27 +361,6 @@ def seed_initial_data():
 
 init_db()
 seed_initial_data()
-
-# ==============================================================================
-# 3. FONCTIONS UTILITAIRES (EXPORT EXCEL SIMPLE & MULTI-FEUILLES)
-# ==============================================================================
-def to_excel_single(df, sheet_name="Registre_ISPO"):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name=sheet_name[:31])
-    return output.getvalue()
-
-def to_excel_global():
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        pd.read_sql_query("SELECT * FROM fo23_infrastructures", conn).to_excel(writer, index=False, sheet_name="FO_23_Infrastructures")
-        pd.read_sql_query("SELECT * FROM fo24_25_equipements", conn).to_excel(writer, index=False, sheet_name="FO_24_25_Equipements")
-        pd.read_sql_query("SELECT * FROM fo26_27_consommables", conn).to_excel(writer, index=False, sheet_name="FO_26_27_Consommables")
-        pd.read_sql_query("SELECT * FROM fo28_pilotine", conn).to_excel(writer, index=False, sheet_name="FO_28_Pilotine")
-        pd.read_sql_query("SELECT * FROM fo29_epis", conn).to_excel(writer, index=False, sheet_name="FO_29_EPIs")
-        pd.read_sql_query("SELECT * FROM fo30_budget_lignes", conn).to_excel(writer, index=False, sheet_name="FO_30_Budget")
-        pd.read_sql_query("SELECT * FROM cl06_07_checklists", conn).to_excel(writer, index=False, sheet_name="CL_06_07_Checklists")
-    return output.getvalue()
 
 def parse_date_safe(val):
     try:
@@ -277,10 +371,637 @@ def parse_date_safe(val):
         return date.today()
 
 # ==============================================================================
-# 4. BARRE LATÉRALE DE NAVIGATION
+# 3. MOTEUR D'EXPORT EXCEL OFFICIEL NADOR WEST MED (AVEC LOGO INTÉGRÉ)
 # ==============================================================================
-st.sidebar.markdown("## ⚓ DPM Nador West Med")
-st.sidebar.markdown("**Périmètre :** Ressources Matérielles  \n**Référentiel :** SM ISPO (`DMP_PR_02`)  \n**Pilote Responsable RM :** Omar Dialmy")
+def get_official_styles(workbook):
+    return {
+        'org_box': workbook.add_format({
+            'bold': True, 'font_size': 9, 'font_color': '#1B3668',
+            'align': 'center', 'valign': 'bottom', 'border': 1,
+            'bg_color': '#FFFFFF', 'text_wrap': True
+        }),
+        'title_box': workbook.add_format({
+            'bold': True, 'font_size': 13, 'font_color': '#FFFFFF',
+            'align': 'center', 'valign': 'vcenter', 'border': 1,
+            'bg_color': '#1B3668', 'text_wrap': True
+        }),
+        'ref_box': workbook.add_format({
+            'bold': True, 'font_size': 9, 'font_color': '#1B3668',
+            'align': 'left', 'valign': 'vcenter', 'border': 1,
+            'bg_color': '#F0F7FA', 'text_wrap': True
+        }),
+        'th_main': workbook.add_format({
+            'bold': True, 'font_size': 10, 'font_color': '#FFFFFF',
+            'align': 'center', 'valign': 'vcenter', 'border': 1,
+            'bg_color': '#008394', 'text_wrap': True
+        }),
+        'th_sub': workbook.add_format({
+            'bold': True, 'font_size': 9, 'font_color': '#1B3668',
+            'align': 'center', 'valign': 'vcenter', 'border': 1,
+            'bg_color': '#D9EBF0', 'text_wrap': True
+        }),
+        'section_banner': workbook.add_format({
+            'bold': True, 'font_size': 10, 'font_color': '#FFFFFF',
+            'align': 'left', 'valign': 'vcenter', 'border': 1,
+            'bg_color': '#1B3668'
+        }),
+        'td_text': workbook.add_format({
+            'font_size': 9, 'align': 'left', 'valign': 'vcenter',
+            'border': 1, 'text_wrap': True
+        }),
+        'td_center': workbook.add_format({
+            'font_size': 9, 'align': 'center', 'valign': 'vcenter',
+            'border': 1, 'text_wrap': True
+        }),
+        'td_num': workbook.add_format({
+            'font_size': 9, 'align': 'right', 'valign': 'vcenter',
+            'border': 1, 'num_format': '#,##0'
+        }),
+        'td_curr': workbook.add_format({
+            'font_size': 9, 'align': 'right', 'valign': 'vcenter',
+            'border': 1, 'num_format': '#,##0.00'
+        }),
+        'footer_label': workbook.add_format({
+            'bold': True, 'font_size': 10, 'font_color': '#1B3668',
+            'align': 'left', 'valign': 'vcenter', 'border': 1,
+            'bg_color': '#F0F7FA'
+        }),
+        'footer_val': workbook.add_format({
+            'bold': True, 'font_size': 10, 'font_color': '#1B3668',
+            'align': 'right', 'valign': 'vcenter', 'border': 1,
+            'bg_color': '#D9EBF0', 'num_format': '#,##0.00'
+        }),
+        'sign_box': workbook.add_format({
+            'bold': True, 'italic': True, 'font_size': 10, 'font_color': '#1B3668',
+            'align': 'center', 'valign': 'top', 'border': 1,
+            'bg_color': '#FAFAFA'
+        })
+    }
+
+def draw_official_header(ws, styles, doc_code, doc_title, total_cols, emission_date="31/12/25"):
+    """Dessine le cartouche d'en-tête officiel Nador West Med avec le Logo intégré."""
+    ws.set_landscape()
+    ws.set_paper(9)  # Format A4
+    ws.fit_to_pages(1, 0)
+    ws.set_row(0, 24)
+    ws.set_row(1, 24)
+    ws.set_row(2, 24)
+
+    left_end = max(1, min(2, total_cols - 3))
+    right_start = max(left_end + 1, total_cols - 2)
+
+    ws.merge_range(0, 0, 2, left_end - 1, "Direction du Pilotage Maritime (DPM)", styles['org_box'])
+    ws.merge_range(0, left_end, 2, right_start - 1, doc_title, styles['title_box'])
+    ws.merge_range(0, right_start, 2, total_cols - 1, f"{doc_code}\nDate d'émission : {emission_date}\nPage : 1/1", styles['ref_box'])
+
+    # Insertion du logo Nador West Med dans la case supérieure gauche (A1)
+    try:
+        logo_bytes = generate_nwm_logo_png_bytes()
+        img_pil = Image.open(BytesIO(logo_bytes))
+        w_px, h_px = img_pil.size
+        target_height_px = 58.0
+        scale = target_height_px / float(h_px)
+        ws.insert_image(0, 0, "logo_nwm.png", {
+            'image_data': BytesIO(logo_bytes),
+            'x_offset': 10,
+            'y_offset': 4,
+            'x_scale': scale,
+            'y_scale': scale,
+            'object_position': 1
+        })
+    except Exception:
+        pass
+
+def build_sheet_fo23(workbook, styles):
+    ws = workbook.add_worksheet("DPM_FO_23_Infrastructures")
+    draw_official_header(ws, styles, "DPM_FO_23", "Le Registre des Infrastructures de La DPM", 5)
+    ws.set_column(0, 0, 28)
+    ws.set_column(1, 1, 32)
+    ws.set_column(2, 2, 32)
+    ws.set_column(3, 3, 18)
+    ws.set_column(4, 4, 30)
+
+    ws.set_row(4, 24)
+    ws.set_row(5, 22)
+    ws.merge_range(4, 0, 5, 0, "Infrastructure", styles['th_main'])
+    ws.merge_range(4, 1, 5, 1, "Besoins de réparation", styles['th_main'])
+    ws.merge_range(4, 2, 4, 3, "Les réparations réalisées", styles['th_main'])
+    ws.write(5, 2, "Commentaire", styles['th_sub'])
+    ws.write(5, 3, "Coût", styles['th_sub'])
+    ws.merge_range(4, 4, 5, 4, "Observations", styles['th_main'])
+
+    df = pd.read_sql_query("SELECT * FROM fo23_infrastructures", conn)
+    r = 6
+    if df.empty:
+        for _ in range(5):
+            ws.set_row(r, 22)
+            for col in range(5):
+                ws.write(r, col, "", styles['td_text'])
+            r += 1
+    else:
+        for _, row in df.iterrows():
+            ws.set_row(r, 24)
+            ws.write(r, 0, row['infrastructure'], styles['td_text'])
+            ws.write(r, 1, row['besoins_reparation'], styles['td_text'])
+            ws.write(r, 2, row['reparations_commentaire'], styles['td_text'])
+            ws.write(r, 3, float(row['reparations_cout'] or 0), styles['td_curr'])
+            ws.write(r, 4, row['observations'], styles['td_text'])
+            r += 1
+
+    ws.set_row(r, 24)
+    ws.merge_range(r, 0, r, 2, "Total des Réparations Réalisées (MAD) :", styles['footer_label'])
+    ws.write(r, 3, float(df['reparations_cout'].sum() if not df.empty else 0), styles['footer_val'])
+    ws.write(r, 4, "Le PMJA Ressources DPM", styles['sign_box'])
+
+def build_sheet_fo24_or_25(workbook, styles, sheet_name, doc_code, doc_title, df_subset):
+    ws = workbook.add_worksheet(sheet_name[:31])
+    draw_official_header(ws, styles, doc_code, doc_title, 10)
+    widths = [32, 16, 12, 11, 22, 11, 20, 14, 14, 32]
+    for idx, w in enumerate(widths):
+        ws.set_column(idx, idx, w)
+
+    ws.set_row(4, 24)
+    ws.set_row(5, 22)
+    ws.merge_range(4, 0, 5, 0, "Article", styles['th_main'])
+    ws.merge_range(4, 1, 5, 1, "Coût Estimé", styles['th_main'])
+    ws.merge_range(4, 2, 4, 4, "En utilisation", styles['th_main'])
+    ws.write(5, 2, "Etat", styles['th_sub'])
+    ws.write(5, 3, "Quantité", styles['th_sub'])
+    ws.write(5, 4, "Emplacement", styles['th_sub'])
+    ws.merge_range(4, 5, 4, 6, "En Stock", styles['th_main'])
+    ws.write(5, 5, "Quantité", styles['th_sub'])
+    ws.write(5, 6, "Localisation", styles['th_sub'])
+    ws.merge_range(4, 7, 4, 8, "Besoins", styles['th_main'])
+    ws.write(5, 7, "Achat", styles['th_sub'])
+    ws.write(5, 8, "Réparation", styles['th_sub'])
+    ws.merge_range(4, 9, 5, 9, "Observations", styles['th_main'])
+
+    r = 6
+    if df_subset.empty:
+        for _ in range(5):
+            ws.set_row(r, 22)
+            for col in range(10):
+                ws.write(r, col, "", styles['td_text'])
+            r += 1
+    else:
+        for _, row in df_subset.iterrows():
+            ws.set_row(r, 26)
+            ws.write(r, 0, row['article'], styles['td_text'])
+            ws.write(r, 1, float(row['cout_estime'] or 0), styles['td_curr'])
+            ws.write(r, 2, row['util_etat'], styles['td_center'])
+            ws.write(r, 3, int(row['util_quantite'] or 0), styles['td_num'])
+            ws.write(r, 4, row['util_emplacement'], styles['td_text'])
+            ws.write(r, 5, int(row['stock_quantite'] or 0), styles['td_num'])
+            ws.write(r, 6, row['stock_localisation'], styles['td_text'])
+            ws.write(r, 7, row['besoin_achat'], styles['td_center'])
+            ws.write(r, 8, row['besoin_reparation'], styles['td_center'])
+            ws.write(r, 9, row['observations'], styles['td_text'])
+            r += 1
+
+    ws.set_row(r, 24)
+    ws.write(r, 0, "Total Coût Estimé (MAD) :", styles['footer_label'])
+    ws.write(r, 1, float(df_subset['cout_estime'].sum() if not df_subset.empty else 0), styles['footer_val'])
+    ws.merge_range(r, 2, r, 6, "", styles['footer_label'])
+    ws.merge_range(r, 7, r, 9, "Le PMJA Ressources DPM", styles['sign_box'])
+
+def build_sheet_fo26(workbook, styles):
+    ws = workbook.add_worksheet("DPM_FO_26_Conso_Generales")
+    draw_official_header(ws, styles, "DPM_FO_26", "L'Etat des Consommations générales de La DPM", 13)
+    widths = [24, 18, 10, 12, 14, 10, 12, 14, 10, 12, 14, 18, 24]
+    for i, w in enumerate(widths):
+        ws.set_column(i, i, w)
+
+    ws.set_row(4, 24)
+    ws.set_row(5, 22)
+    ws.merge_range(4, 0, 5, 0, "Article", styles['th_main'])
+    ws.merge_range(4, 1, 5, 1, "Emplacement", styles['th_main'])
+    ws.merge_range(4, 2, 4, 4, "Existant début du période", styles['th_main'])
+    ws.write(5, 2, "Qtité", styles['th_sub'])
+    ws.write(5, 3, "Prix unit", styles['th_sub'])
+    ws.write(5, 4, "Coût", styles['th_sub'])
+    ws.merge_range(4, 5, 4, 7, "Livré durant la période", styles['th_main'])
+    ws.write(5, 5, "Qtité", styles['th_sub'])
+    ws.write(5, 6, "Prix unit", styles['th_sub'])
+    ws.write(5, 7, "Coût", styles['th_sub'])
+    ws.merge_range(4, 8, 4, 10, "Existant Fin de la période", styles['th_main'])
+    ws.write(5, 8, "Qtité", styles['th_sub'])
+    ws.write(5, 9, "Prix unit", styles['th_sub'])
+    ws.write(5, 10, "Coût", styles['th_sub'])
+    ws.merge_range(4, 11, 5, 11, "Cout des Consommations", styles['th_main'])
+    ws.merge_range(4, 12, 5, 12, "Observation", styles['th_main'])
+
+    df = pd.read_sql_query("SELECT * FROM fo26_27_consommables WHERE categorie='Consommations Générales (FO_26)'", conn)
+    r = 6
+    tot_conso = 0.0
+    if df.empty:
+        for _ in range(5):
+            ws.set_row(r, 22)
+            for col in range(13):
+                ws.write(r, col, "", styles['td_text'])
+            r += 1
+    else:
+        for _, row in df.iterrows():
+            ws.set_row(r, 22)
+            c_deb = float(row['debut_qte']) * float(row['debut_prix_unit'])
+            c_liv = float(row['livre_qte']) * float(row['livre_prix_unit'])
+            c_fin = float(row['fin_qte']) * float(row['fin_prix_unit'])
+            c_conso = (c_deb + c_liv) - c_fin
+            tot_conso += c_conso
+
+            ws.write(r, 0, row['article'], styles['td_text'])
+            ws.write(r, 1, row['emplacement'], styles['td_text'])
+            ws.write(r, 2, int(row['debut_qte']), styles['td_num'])
+            ws.write(r, 3, float(row['debut_prix_unit']), styles['td_curr'])
+            ws.write(r, 4, c_deb, styles['td_curr'])
+            ws.write(r, 5, int(row['livre_qte']), styles['td_num'])
+            ws.write(r, 6, float(row['livre_prix_unit']), styles['td_curr'])
+            ws.write(r, 7, c_liv, styles['td_curr'])
+            ws.write(r, 8, int(row['fin_qte']), styles['td_num'])
+            ws.write(r, 9, float(row['fin_prix_unit']), styles['td_curr'])
+            ws.write(r, 10, c_fin, styles['td_curr'])
+            ws.write(r, 11, c_conso, styles['td_curr'])
+            ws.write(r, 12, row['observations'], styles['td_text'])
+            r += 1
+
+    ws.set_row(r, 26)
+    ws.merge_range(r, 0, r, 10, "Le Cout des Consommations de la période :", styles['footer_label'])
+    ws.write(r, 11, tot_conso, styles['footer_val'])
+    ws.write(r, 12, "Le PMJA Ressources DPM", styles['sign_box'])
+
+def build_sheet_fo27(workbook, styles):
+    ws = workbook.add_worksheet("DPM_FO_27_Pharmacie")
+    draw_official_header(ws, styles, "DPM_FO_27", "L'Etat des Consommations Pharmaceutiques de La DPM", 15)
+    widths = [22, 16, 9, 12, 11, 13, 9, 11, 13, 9, 12, 11, 13, 16, 22]
+    for i, w in enumerate(widths):
+        ws.set_column(i, i, w)
+
+    ws.set_row(4, 24)
+    ws.set_row(5, 22)
+    ws.merge_range(4, 0, 5, 0, "Article", styles['th_main'])
+    ws.merge_range(4, 1, 5, 1, "Emplacement", styles['th_main'])
+    ws.merge_range(4, 2, 4, 5, "Existant début du période", styles['th_main'])
+    ws.write(5, 2, "Qtité", styles['th_sub'])
+    ws.write(5, 3, "Date Expir", styles['th_sub'])
+    ws.write(5, 4, "Prix unit", styles['th_sub'])
+    ws.write(5, 5, "Coût", styles['th_sub'])
+    ws.merge_range(4, 6, 4, 8, "Livré durant la période", styles['th_main'])
+    ws.write(5, 6, "Qtité", styles['th_sub'])
+    ws.write(5, 7, "Prix unit", styles['th_sub'])
+    ws.write(5, 8, "Coût", styles['th_sub'])
+    ws.merge_range(4, 9, 4, 12, "Existant Fin de la période", styles['th_main'])
+    ws.write(5, 9, "Qtité", styles['th_sub'])
+    ws.write(5, 10, "Date Expir", styles['th_sub'])
+    ws.write(5, 11, "Prix unit", styles['th_sub'])
+    ws.write(5, 12, "Coût", styles['th_sub'])
+    ws.merge_range(4, 13, 5, 13, "Cout des Consommations", styles['th_main'])
+    ws.merge_range(4, 14, 5, 14, "Observation", styles['th_main'])
+
+    df = pd.read_sql_query("SELECT * FROM fo26_27_consommables WHERE categorie='Pharmacie (FO_27)'", conn)
+    r = 6
+    tot_conso = 0.0
+    if df.empty:
+        for _ in range(5):
+            ws.set_row(r, 22)
+            for col in range(15):
+                ws.write(r, col, "", styles['td_text'])
+            r += 1
+    else:
+        for _, row in df.iterrows():
+            ws.set_row(r, 22)
+            c_deb = float(row['debut_qte']) * float(row['debut_prix_unit'])
+            c_liv = float(row['livre_qte']) * float(row['livre_prix_unit'])
+            c_fin = float(row['fin_qte']) * float(row['fin_prix_unit'])
+            c_conso = (c_deb + c_liv) - c_fin
+            tot_conso += c_conso
+
+            ws.write(r, 0, row['article'], styles['td_text'])
+            ws.write(r, 1, row['emplacement'], styles['td_text'])
+            ws.write(r, 2, int(row['debut_qte']), styles['td_num'])
+            ws.write(r, 3, str(row['debut_date_expir']), styles['td_center'])
+            ws.write(r, 4, float(row['debut_prix_unit']), styles['td_curr'])
+            ws.write(r, 5, c_deb, styles['td_curr'])
+            ws.write(r, 6, int(row['livre_qte']), styles['td_num'])
+            ws.write(r, 7, float(row['livre_prix_unit']), styles['td_curr'])
+            ws.write(r, 8, c_liv, styles['td_curr'])
+            ws.write(r, 9, int(row['fin_qte']), styles['td_num'])
+            ws.write(r, 10, str(row['fin_date_expir']), styles['td_center'])
+            ws.write(r, 11, float(row['fin_prix_unit']), styles['td_curr'])
+            ws.write(r, 12, c_fin, styles['td_curr'])
+            ws.write(r, 13, c_conso, styles['td_curr'])
+            ws.write(r, 14, row['observations'], styles['td_text'])
+            r += 1
+
+    ws.set_row(r, 26)
+    ws.merge_range(r, 0, r, 12, "Le Cout des Consommations de la période :", styles['footer_label'])
+    ws.write(r, 13, tot_conso, styles['footer_val'])
+    ws.write(r, 14, "Le PMJA Ressources DPM", styles['sign_box'])
+
+def build_sheet_fo28(workbook, styles):
+    ws = workbook.add_worksheet("DPM_FO_28_Pilotine")
+    draw_official_header(ws, styles, "DPM_FO_28", "Le registre de La Consommation de la Pilotine", 13)
+    for col in range(12):
+        ws.set_column(col, col, 12)
+    ws.set_column(12, 12, 26)
+
+    ws.set_row(4, 24)
+    ws.set_row(5, 22)
+    ws.merge_range(4, 0, 4, 2, "Existant début du période", styles['th_main'])
+    ws.merge_range(4, 3, 4, 5, "Livré durant la période", styles['th_main'])
+    ws.merge_range(4, 6, 4, 8, "Existant Fin de la période", styles['th_main'])
+    ws.merge_range(4, 9, 4, 11, "Consommé durant période", styles['th_main'])
+    ws.merge_range(4, 12, 5, 12, "Observation", styles['th_main'])
+
+    for base_col in [0, 3, 6, 9]:
+        ws.write(5, base_col, "Date", styles['th_sub'])
+        ws.write(5, base_col + 1, "Gasoil", styles['th_sub'])
+        ws.write(5, base_col + 2, "Lubrif", styles['th_sub'])
+
+    df = pd.read_sql_query("SELECT * FROM fo28_pilotine", conn)
+    r = 6
+    tot_gas, tot_lub = 0.0, 0.0
+    if df.empty:
+        for _ in range(4):
+            ws.set_row(r, 22)
+            for col in range(13):
+                ws.write(r, col, "", styles['td_text'])
+            r += 1
+    else:
+        for _, row in df.iterrows():
+            ws.set_row(r, 22)
+            c_gas = float(row['debut_gasoil']) + float(row['livre_gasoil']) - float(row['fin_gasoil'])
+            c_lub = float(row['debut_lubrif']) + float(row['livre_lubrif']) - float(row['fin_lubrif'])
+            tot_gas += c_gas
+            tot_lub += c_lub
+
+            ws.write(r, 0, str(row['debut_date']), styles['td_center'])
+            ws.write(r, 1, float(row['debut_gasoil']), styles['td_curr'])
+            ws.write(r, 2, float(row['debut_lubrif']), styles['td_curr'])
+            ws.write(r, 3, str(row['livre_date']), styles['td_center'])
+            ws.write(r, 4, float(row['livre_gasoil']), styles['td_curr'])
+            ws.write(r, 5, float(row['livre_lubrif']), styles['td_curr'])
+            ws.write(r, 6, str(row['fin_date']), styles['td_center'])
+            ws.write(r, 7, float(row['fin_gasoil']), styles['td_curr'])
+            ws.write(r, 8, float(row['fin_lubrif']), styles['td_curr'])
+            ws.write(r, 9, str(row['fin_date']), styles['td_center'])
+            ws.write(r, 10, c_gas, styles['td_curr'])
+            ws.write(r, 11, c_lub, styles['td_curr'])
+            ws.write(r, 12, f"[{row['nom_pilotine']}] {row['observations']}", styles['td_text'])
+            r += 1
+
+    nb_rows = len(df) if not df.empty else 1
+    ws.set_row(r, 24)
+    ws.merge_range(r, 0, r, 9, "Consommation Totale Durant Période :", styles['footer_label'])
+    ws.write(r, 10, tot_gas, styles['footer_val'])
+    ws.write(r, 11, tot_lub, styles['footer_val'])
+    ws.write(r, 12, "", styles['footer_label'])
+
+    ws.set_row(r + 1, 24)
+    ws.merge_range(r + 1, 0, r + 1, 9, "Consommation Moyenne Durant Période :", styles['footer_label'])
+    ws.write(r + 1, 10, tot_gas / nb_rows if not df.empty else 0.0, styles['footer_val'])
+    ws.write(r + 1, 11, tot_lub / nb_rows if not df.empty else 0.0, styles['footer_val'])
+    ws.write(r + 1, 12, "Le PMJA Ressources DPM", styles['sign_box'])
+
+def build_sheet_fo29(workbook, styles):
+    ws = workbook.add_worksheet("DPM_FO_29_EPIs")
+    draw_official_header(ws, styles, "DPM_FO_29", "Le registre des EPIs", 13)
+    widths = [26, 10, 12, 13, 14, 10, 12, 13, 14, 18, 14, 16, 24]
+    for i, w in enumerate(widths):
+        ws.set_column(i, i, w)
+
+    ws.set_row(4, 24)
+    ws.set_row(5, 22)
+    ws.merge_range(4, 0, 5, 0, "Article", styles['th_main'])
+    ws.merge_range(4, 1, 4, 4, "En utilisation", styles['th_main'])
+    ws.write(5, 1, "Nombre", styles['th_sub'])
+    ws.write(5, 2, "Etat", styles['th_sub'])
+    ws.write(5, 3, "Échéance", styles['th_sub'])
+    ws.write(5, 4, "Coût", styles['th_sub'])
+    ws.merge_range(4, 5, 4, 9, "En Stock", styles['th_main'])
+    ws.write(5, 5, "Nombre", styles['th_sub'])
+    ws.write(5, 6, "Etat", styles['th_sub'])
+    ws.write(5, 7, "Échéance", styles['th_sub'])
+    ws.write(5, 8, "Coût", styles['th_sub'])
+    ws.write(5, 9, "Local", styles['th_sub'])
+    ws.merge_range(4, 10, 4, 11, "Besoins", styles['th_main'])
+    ws.write(5, 10, "Achat", styles['th_sub'])
+    ws.write(5, 11, "Maintenance", styles['th_sub'])
+    ws.merge_range(4, 12, 5, 12, "Observations", styles['th_main'])
+
+    df = pd.read_sql_query("SELECT * FROM fo29_epis", conn)
+    r = 6
+    if df.empty:
+        for _ in range(5):
+            ws.set_row(r, 22)
+            for col in range(13):
+                ws.write(r, col, "", styles['td_text'])
+            r += 1
+    else:
+        for _, row in df.iterrows():
+            ws.set_row(r, 22)
+            ws.write(r, 0, row['article'], styles['td_text'])
+            ws.write(r, 1, int(row['util_nombre']), styles['td_num'])
+            ws.write(r, 2, row['util_etat'], styles['td_center'])
+            ws.write(r, 3, str(row['util_echeance']), styles['td_center'])
+            ws.write(r, 4, float(row['util_cout']), styles['td_curr'])
+            ws.write(r, 5, int(row['stock_nombre']), styles['td_num'])
+            ws.write(r, 6, row['stock_etat'], styles['td_center'])
+            ws.write(r, 7, str(row['stock_echeance']), styles['td_center'])
+            ws.write(r, 8, float(row['stock_cout']), styles['td_curr'])
+            ws.write(r, 9, row['stock_local'], styles['td_text'])
+            ws.write(r, 10, row['besoin_achat'], styles['td_center'])
+            ws.write(r, 11, row['besoin_maintenance'], styles['td_center'])
+            ws.write(r, 12, row['observations'], styles['td_text'])
+            r += 1
+
+def build_sheet_fo30(workbook, styles):
+    ws = workbook.add_worksheet("DPM_FO_30_Budget")
+    draw_official_header(ws, styles, "DPM_FO_30", "Le Formulaire de Préparation du Budget de La DPM", 9)
+    widths = [20, 30, 15, 15, 16, 16, 16, 16, 26]
+    for i, w in enumerate(widths):
+        ws.set_column(i, i, w)
+
+    df = pd.read_sql_query("SELECT * FROM fo30_budget_lignes", conn)
+    df_conso = df[df['type_ligne'] == 'Consommation (Générale / Pharmacie)'] if not df.empty else pd.DataFrame()
+    df_inv = df[df['type_ligne'] == 'Investissement'] if not df.empty else pd.DataFrame()
+
+    # PARTIE 1 : CONSOMMATIONS
+    r = 4
+    ws.set_row(r, 24)
+    ws.merge_range(r, 0, r, 8, "Consommations Générale / Consommation Pharmacie.", styles['section_banner'])
+    r += 1
+    ws.set_row(r, 24)
+    ws.set_row(r + 1, 22)
+    ws.merge_range(r, 0, r + 1, 0, "Classe", styles['th_main'])
+    ws.merge_range(r, 1, r + 1, 1, "Article", styles['th_main'])
+    ws.merge_range(r, 2, r, 4, "Besoins annuel Estimé", styles['th_main'])
+    ws.write(r + 1, 2, "Prix Unitaire", styles['th_sub'])
+    ws.write(r + 1, 3, "Besoins (unités)", styles['th_sub'])
+    ws.write(r + 1, 4, "Coût", styles['th_sub'])
+    ws.merge_range(r, 5, r, 6, "Consommé année précédente", styles['th_main'])
+    ws.write(r + 1, 5, "Quantité (unités)", styles['th_sub'])
+    ws.write(r + 1, 6, "Coût", styles['th_sub'])
+    ws.merge_range(r, 7, r + 1, 7, "Variation Budget", styles['th_main'])
+    ws.merge_range(r, 8, r + 1, 8, "Observations", styles['th_main'])
+    r += 2
+
+    tot_conso_n, tot_conso_prec = 0.0, 0.0
+    if df_conso.empty:
+        for _ in range(3):
+            ws.set_row(r, 20)
+            for col in range(9):
+                ws.write(r, col, "", styles['td_text'])
+            r += 1
+    else:
+        for _, row in df_conso.iterrows():
+            ws.set_row(r, 22)
+            cn = float(row['cout_estime_n'])
+            cp = float(row['cout_annee_prec'])
+            var = cn - cp
+            tot_conso_n += cn
+            tot_conso_prec += cp
+            ws.write(r, 0, row['classe_rubrique'], styles['td_text'])
+            ws.write(r, 1, row['article_investissement'], styles['td_text'])
+            ws.write(r, 2, float(row['prix_unitaire_estime']), styles['td_curr'])
+            ws.write(r, 3, float(row['besoin_unites_estime']), styles['td_num'])
+            ws.write(r, 4, cn, styles['td_curr'])
+            ws.write(r, 5, float(row['qte_annee_prec']), styles['td_num'])
+            ws.write(r, 6, cp, styles['td_curr'])
+            ws.write(r, 7, var, styles['td_curr'])
+            ws.write(r, 8, row['observations'], styles['td_text'])
+            r += 1
+
+    ws.set_row(r, 24)
+    ws.merge_range(r, 0, r, 3, f"Besoins annuels consommations (en Dhs) : {tot_conso_n:,.2f}", styles['footer_label'])
+    ws.merge_range(r, 4, r, 6, f"Utilisés année précédente en Dhs : {tot_conso_prec:,.2f}", styles['footer_label'])
+    ws.merge_range(r, 7, r, 8, f"Variation Budget (en Dhs) : {tot_conso_n - tot_conso_prec:+,.2f}", styles['footer_label'])
+    r += 2
+
+    # PARTIE 2 : INVESTISSEMENTS
+    ws.set_row(r, 24)
+    ws.merge_range(r, 0, r, 8, "Partie Investissements : Formations / EPIs / Tenue / Peinture / Construction / Vigie / PCs / Etc.", styles['section_banner'])
+    r += 1
+    ws.set_row(r, 24)
+    ws.merge_range(r, 0, r, 2, "Investissement", styles['th_main'])
+    ws.merge_range(r, 3, r, 7, "Justifications", styles['th_main'])
+    ws.write(r, 8, "Cout", styles['th_main'])
+    r += 1
+
+    tot_inv_n, tot_inv_prec = 0.0, 0.0
+    if df_inv.empty:
+        for _ in range(3):
+            ws.set_row(r, 22)
+            ws.merge_range(r, 0, r, 2, "", styles['td_text'])
+            ws.merge_range(r, 3, r, 7, "", styles['td_text'])
+            ws.write(r, 8, "", styles['td_curr'])
+            r += 1
+    else:
+        for _, row in df_inv.iterrows():
+            ws.set_row(r, 24)
+            cn = float(row['cout_estime_n'])
+            cp = float(row['cout_annee_prec'])
+            tot_inv_n += cn
+            tot_inv_prec += cp
+            ws.merge_range(r, 0, r, 2, f"[{row['classe_rubrique']}] {row['article_investissement']}", styles['td_text'])
+            ws.merge_range(r, 3, r, 7, row['justification'], styles['td_text'])
+            ws.write(r, 8, cn, styles['td_curr'])
+            r += 1
+
+    ws.set_row(r, 24)
+    ws.merge_range(r, 0, r, 7, "Total des investissements :", styles['footer_label'])
+    ws.write(r, 8, tot_inv_n, styles['footer_val'])
+    r += 1
+
+    budget_prec = tot_conso_prec + tot_inv_prec
+    budget_obj = tot_conso_n + tot_inv_n
+    var_glob = budget_obj - budget_prec
+
+    ws.set_row(r, 26)
+    ws.merge_range(r, 0, r, 2, f"Budget année précédente : {budget_prec:,.2f} MAD", styles['footer_label'])
+    ws.merge_range(r, 3, r, 5, f"Budget année en objet : {budget_obj:,.2f} MAD", styles['footer_label'])
+    ws.merge_range(r, 6, r, 8, f"Variation Budget : {var_glob:+,.2f} MAD", styles['footer_label'])
+
+def build_sheets_cl06_07(workbook, styles):
+    df = pd.read_sql_query("SELECT * FROM cl06_07_checklists", conn)
+
+    # Feuille DPM_CL_06
+    ws6 = workbook.add_worksheet("DPM_CL_06_Achats")
+    draw_official_header(ws6, styles, "DPM_CL_06", "Les Spécifications d'Achat : Equipements", 3)
+    ws6.set_column(0, 0, 32)
+    ws6.set_column(1, 1, 65)
+    ws6.set_column(2, 2, 28)
+    ws6.set_row(4, 24)
+    ws6.write(4, 0, "Rubrique", styles['th_main'])
+    ws6.write(4, 1, "Principales Spécifications d'Achat", styles['th_main'])
+    ws6.write(4, 2, "Observations", styles['th_main'])
+    r = 5
+    for _, row in df.iterrows():
+        ws6.set_row(r, 36)
+        ws6.write(r, 0, row['equipement_rubrique'], styles['td_text'])
+        ws6.write(r, 1, row['specifications_achat'], styles['td_text'])
+        ws6.write(r, 2, row['observations'], styles['td_text'])
+        r += 1
+
+    # Feuille DPM_CL_07
+    ws7 = workbook.add_worksheet("DPM_CL_07_Maintenance")
+    draw_official_header(ws7, styles, "DPM_CL_07", "La Checklist des Recommandations d'Utilisation et de Maintenance des Equipements de La DPM", 3)
+    ws7.set_column(0, 0, 32)
+    ws7.set_column(1, 1, 48)
+    ws7.set_column(2, 2, 48)
+    ws7.set_row(4, 24)
+    ws7.write(4, 0, "Equipement.", styles['th_main'])
+    ws7.write(4, 1, "Les Principales Recommandations de Maintenance.", styles['th_main'])
+    ws7.write(4, 2, "Les Principales Recommandations d'utilisation.", styles['th_main'])
+    r = 5
+    for _, row in df.iterrows():
+        ws7.set_row(r, 36)
+        ws7.write(r, 0, row['equipement_rubrique'], styles['td_text'])
+        ws7.write(r, 1, row['recommandations_maintenance'], styles['td_text'])
+        ws7.write(r, 2, row['recommandations_utilisation'], styles['td_text'])
+        r += 1
+
+def generate_official_excel_pack(target_form="ALL"):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        wb = writer.book
+        styles = get_official_styles(wb)
+        df_all_eq = pd.read_sql_query("SELECT * FROM fo24_25_equipements", conn)
+
+        if target_form in ["ALL", "FO_23"]:
+            build_sheet_fo23(wb, styles)
+        if target_form in ["ALL", "FO_24"]:
+            df_fo24 = df_all_eq[df_all_eq['classe'] == "Équipements d'Ameublement (DPM_FO_24)"]
+            build_sheet_fo24_or_25(wb, styles, "DPM_FO_24_Ameublement", "DPM_FO_24", "Le registre des équipements d'ameublement de La DPM", df_fo24)
+        if target_form in ["ALL", "FO_25"]:
+            df_fo25 = df_all_eq[df_all_eq['classe'] == "Équipements de la Vigie (DPM_FO_25)"]
+            build_sheet_fo24_or_25(wb, styles, "DPM_FO_25_Vigie", "DPM_FO_25", "Le registre des équipements de la vigie de La DPM", df_fo25)
+        if target_form in ["ALL", "FO_24_25_ALL"]:
+            build_sheet_fo24_or_25(wb, styles, "DPM_Registre_Global_Equip", "DMP_PR_02", "Registre Consolidé des Équipements (VHF, Vigie, Ameublement, PPU, Simulateur)", df_all_eq)
+        if target_form in ["ALL", "FO_26"]:
+            build_sheet_fo26(wb, styles)
+        if target_form in ["ALL", "FO_27"]:
+            build_sheet_fo27(wb, styles)
+        if target_form in ["ALL", "FO_28"]:
+            build_sheet_fo28(wb, styles)
+        if target_form in ["ALL", "FO_29"]:
+            build_sheet_fo29(wb, styles)
+        if target_form in ["ALL", "FO_30"]:
+            build_sheet_fo30(wb, styles)
+        if target_form in ["ALL", "CL_06_07"]:
+            build_sheets_cl06_07(wb, styles)
+
+    return output.getvalue()
+
+# ==============================================================================
+# 4. BARRE LATÉRALE DE NAVIGATION & OUTILS D'ADMINISTRATION
+# ==============================================================================
+logo_b64 = get_logo_base64()
+st.sidebar.markdown(
+    f'<div style="background:white; padding:10px; border-radius:8px; text-align:center; margin-bottom:10px; border:1px solid #e2e8f0;">'
+    f'<img src="data:image/png;base64,{logo_b64}" style="max-height:68px;">'
+    f'</div>',
+    unsafe_allow_html=True
+)
+st.sidebar.caption("Système de Management ISPO  \n**Processus :** Ressources Matérielles (`DMP_PR_02`)  \n**Pilote Responsable :** Omar Dialmy")
 st.sidebar.markdown("---")
 
 menu = st.sidebar.radio(
@@ -298,19 +1019,52 @@ menu = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
+st.sidebar.markdown("#### 📥 Export Audit ISPO Officiel")
 st.sidebar.download_button(
-    label="📥 Télécharger le Cartable Complet (Excel)",
-    data=to_excel_global(),
-    file_name=f"Cartable_RM_DPM_NWM_ISPO_{date.today()}.xlsx",
+    label="📘 Télécharger Cartable Officiel NWM (.xlsx)",
+    data=generate_official_excel_pack("ALL"),
+    file_name=f"Cartable_Officiel_ISPO_DPM_NWM_{date.today()}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     use_container_width=True
 )
 
-# En-tête principal
-st.markdown("""
-<div class="main-header">
-    <h2>⚓ Direction du Pilotage Maritime — Nador West Med</h2>
-    <p>Système de Management ISPO • Gestion Intégrée des Ressources Matérielles (DMP_PR_02 / DPM_FI_02)</p>
+with st.sidebar.expander("🖼️ Logo & Base de données"):
+    up_logo = st.file_uploader("Remplacer par votre fichier image logo (.png)", type=["png", "jpg", "jpeg"])
+    if up_logo is not None:
+        with open(LOGO_FILE, "wb") as f:
+            f.write(up_logo.getbuffer())
+        st.success("Logo officiel enregistré pour l'interface et les exports Excel !")
+        st.rerun()
+
+    if os.path.exists(DB_FILE):
+        with open(DB_FILE, "rb") as f:
+            st.download_button("⬇️ Sauvegarder la base (.db)", data=f, file_name=f"backup_dpm_nwm_{date.today()}.db", use_container_width=True)
+    uploaded_db = st.file_uploader("Restaurer un fichier .db", type=["db", "sqlite"])
+    if uploaded_db is not None:
+        if st.button("⚠️ Confirmer la restauration", use_container_width=True):
+            with open(DB_FILE, "wb") as f:
+                f.write(uploaded_db.getbuffer())
+            st.success("Base restaurée avec succès !")
+            st.rerun()
+
+# ==============================================================================
+# BANNIÈRE D'EN-TÊTE GLOBALE AVEC LOGO NWM
+# ==============================================================================
+st.markdown(f"""
+<div class="nwm-banner">
+    <div class="nwm-banner-left">
+        <div class="nwm-logo-box">
+            <img src="data:image/png;base64,{logo_b64}" style="height: 54px;">
+        </div>
+        <div>
+            <h1>Direction du Pilotage Maritime — Nador West Med</h1>
+            <p>ERP Ressources Matérielles & Conformité Audit ISPO • Référentiel : DMP_PR_02 | DPM_FI_02 | FO_23 à FO_30</p>
+        </div>
+    </div>
+    <div class="nwm-badge">
+        SYSTÈME DE MANAGEMENT ISPO<br>
+        Date d'émission réf. : 31/12/25
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -318,9 +1072,6 @@ st.markdown("""
 # MODULE 1 : TABLEAU DE BORD ISPO (DPM_FI_02)
 # ==============================================================================
 if menu == "📊 Tableau de Bord ISPO (DPM_FI_02)":
-    st.subheader("📊 Tableau de Bord & Surveillance du Processus RM (`DPM_FI_02`)")
-    st.caption("Finalité : Garantir la disponibilité et l'adéquation des ressources matérielles critiques pour la qualité et la sécurité du pilotage maritime.")
-
     df_infra = pd.read_sql_query("SELECT * FROM fo23_infrastructures", conn)
     df_equip = pd.read_sql_query("SELECT * FROM fo24_25_equipements", conn)
     df_conso = pd.read_sql_query("SELECT * FROM fo26_27_consommables", conn)
@@ -330,93 +1081,128 @@ if menu == "📊 Tableau de Bord ISPO (DPM_FI_02)":
     aujourd_hui = pd.Timestamp(date.today())
     limite_30j = aujourd_hui + pd.Timedelta(days=30)
 
-    # 1. Calcul des indisponibilités / réparations critiques (KPI DPM_FI_02)
     nb_indispo_equip = len(df_equip[df_equip['util_etat'].isin(['À réparer', 'Hors service'])]) if not df_equip.empty else 0
     nb_indispo_infra = len(df_infra[df_infra['criticite'] == 'Critique - Urgent']) if not df_infra.empty else 0
     kpi_indispo = nb_indispo_equip + nb_indispo_infra
 
-    # 2. Calcul des alertes d'échéance EPI (30 jours ou dépassé)
     alertes_epi_df = pd.DataFrame()
     if not df_epi.empty:
         df_epi['util_echeance_dt'] = pd.to_datetime(df_epi['util_echeance'], errors='coerce')
         alertes_epi_df = df_epi[df_epi['util_echeance_dt'] <= limite_30j]
 
-    # 3. Calcul des alertes Pharmacie (30 jours ou dépassé)
     alertes_pharma_df = pd.DataFrame()
     df_pharma = df_conso[df_conso['categorie'] == 'Pharmacie (FO_27)'].copy() if not df_conso.empty else pd.DataFrame()
     if not df_pharma.empty:
         df_pharma['fin_date_expir_dt'] = pd.to_datetime(df_pharma['fin_date_expir'], errors='coerce')
         alertes_pharma_df = df_pharma[df_pharma['fin_date_expir_dt'] <= limite_30j]
 
-    # 4. Valeur totale du patrimoine matériel enregistré
+    nb_alertes_exp = len(alertes_epi_df) + len(alertes_pharma_df)
     total_patrimoine = (df_equip['cout_estime'].sum() if not df_equip.empty else 0.0) + \
                        (df_epi['util_cout'].sum() + df_epi['stock_cout'].sum() if not df_epi.empty else 0.0) + \
                        (df_infra['reparations_cout'].sum() if not df_infra.empty else 0.0)
+    unites_actives = int(df_equip['util_quantite'].sum()) if not df_equip.empty else 0
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("KPI ISPO : Indisponibilités Critiques", f"{kpi_indispo}", delta="Cible : 0 (Mensuel)", delta_color="inverse" if kpi_indispo > 0 else "normal")
-    col2.metric("Dotations & Équipements Actifs", f"{int(df_equip['util_quantite'].sum()) if not df_equip.empty else 0} unités")
-    col3.metric("Alertes Échéances (EPI & Pharmacie)", f"{len(alertes_epi_df) + len(alertes_pharma_df)}", delta_color="inverse" if (len(alertes_epi_df) + len(alertes_pharma_df)) > 0 else "normal")
-    col4.metric("Valeur Matérielle Engagée", f"{total_patrimoine:,.2f} MAD")
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        cls_kpi = "alert" if kpi_indispo > 0 else "ok"
+        st.markdown(f"""<div class="kpi-card {cls_kpi}">
+            <div class="kpi-title">KPI DPM_FI_02 (Indisponibilités)</div>
+            <div class="kpi-value">{kpi_indispo}</div>
+            <div class="kpi-sub">Cible ISPO : 0 équipement critique HS</div>
+        </div>""", unsafe_allow_html=True)
+    with c2:
+        st.markdown(f"""<div class="kpi-card">
+            <div class="kpi-title">Dotations Actives (FO_24/25)</div>
+            <div class="kpi-value">{unites_actives} unités</div>
+            <div class="kpi-sub">{len(df_equip)} références inventoriées</div>
+        </div>""", unsafe_allow_html=True)
+    with c3:
+        cls_exp = "alert" if nb_alertes_exp > 0 else "ok"
+        st.markdown(f"""<div class="kpi-card {cls_exp}">
+            <div class="kpi-title">Alertes Péremption (< 30j)</div>
+            <div class="kpi-value">{nb_alertes_exp}</div>
+            <div class="kpi-sub">EPIs (FO_29) & Pharmacie (FO_27)</div>
+        </div>""", unsafe_allow_html=True)
+    with c4:
+        st.markdown(f"""<div class="kpi-card gold">
+            <div class="kpi-title">Patrimoine Matériel Engagé</div>
+            <div class="kpi-value">{total_patrimoine:,.2f} MAD</div>
+            <div class="kpi-sub">Inclut dotation VHF SOREMAR (215 750 MAD)</div>
+        </div>""", unsafe_allow_html=True)
 
-    if kpi_indispo == 0 and len(alertes_epi_df) == 0 and len(alertes_pharma_df) == 0:
-        st.success("✅ **Conformité ISPO Totale :** Aucune indisponibilité critique ni échéance dépassée à moins de 30 jours.")
+    if kpi_indispo == 0 and nb_alertes_exp == 0:
+        st.success("✅ **Indicateur de Performance `DPM_FI_02` Conforme :** 100 % des équipements critiques sont disponibles et aucune échéance EPI/Pharmacie n'est dépassée.")
     else:
         if kpi_indispo > 0:
-            st.error(f"🚨 **Point Critique (`DPM_FI_02`) :** {kpi_indispo} ressource(s) matérielle(s) signalée(s) en état 'À réparer / Hors service' ou 'Critique'.")
+            st.error(f"🚨 **Alerte Disponibilité (`DPM_FI_02`) :** {kpi_indispo} équipement(s) ou infrastructure(s) nécessite(nt) une réparation immédiate.")
         if not alertes_epi_df.empty:
-            st.warning(f"⚠️ **Alerte EPI (`DPM_FO_29`) :** {len(alertes_epi_df)} lot(s) d'EPI arrivent à échéance dans moins de 30 jours.")
+            st.warning(f"⚠️ **Échéance EPI (`DPM_FO_29`) :** {len(alertes_epi_df)} lot(s) d'EPI expirent sous 30 jours.")
             st.dataframe(alertes_epi_df[['id', 'article', 'util_nombre', 'util_echeance', 'observations']], use_container_width=True)
         if not alertes_pharma_df.empty:
-            st.warning(f"⚠️ **Alerte Infirmerie (`DPM_FO_27`) :** {len(alertes_pharma_df)} article(s) pharmaceutique(s) arrivent à péremption.")
+            st.warning(f"⚠️ **Péremption Pharmacie (`DPM_FO_27`) :** {len(alertes_pharma_df)} produit(s) arrivent à expiration.")
             st.dataframe(alertes_pharma_df[['id', 'article', 'fin_qte', 'fin_date_expir', 'observations']], use_container_width=True)
 
     st.markdown("---")
-    st.subheader("📈 Analyse Visuelle des Ressources Matérielles")
-    c_graph1, c_graph2 = st.columns(2)
-
-    with c_graph1:
-        st.markdown("**Répartition de la Valeur par Classe de Ressources (`DMP_PR_02`)**")
+    g1, g2 = st.columns(2)
+    with g1:
+        st.markdown("##### 📊 Répartition de la Valeur par Classe (`DMP_PR_02`)")
         if not df_equip.empty and df_equip['cout_estime'].sum() > 0:
             df_grp = df_equip.groupby('classe', as_index=False)['cout_estime'].sum()
-            fig_pie = px.pie(df_grp, values='cout_estime', names='classe', hole=0.45, color_discrete_sequence=px.colors.sequential.Blues_r)
-            st.plotly_chart(fig_pie, use_container_width=True)
+            fig1 = px.pie(df_grp, values='cout_estime', names='classe', hole=0.45, color_discrete_sequence=['#1B3668', '#0097A7', '#2B6CB0', '#00A3B4', '#64748B'])
+            fig1.update_layout(margin=dict(t=20, b=20, l=10, r=10), height=340)
+            st.plotly_chart(fig1, use_container_width=True)
         else:
-            st.info("Aucun coût d'équipement enregistré.")
+            st.info("Aucune donnée valorisée.")
 
-    with c_graph2:
-        st.markdown("**Suivi des Consommations Gasoil & Lubrifiant Pilotine (`DPM_FO_28`)**")
+    with g2:
+        st.markdown("##### 🚤 Bilan des Consommations Pilotine (`DPM_FO_28`)")
         if not df_pil.empty:
-            df_pil['gasoil_consomme'] = df_pil['debut_gasoil'] + df_pil['livre_gasoil'] - df_pil['fin_gasoil']
-            df_pil['lubrif_consomme'] = df_pil['debut_lubrif'] + df_pil['livre_lubrif'] - df_pil['fin_lubrif']
-            fig_bar = px.bar(df_pil, x='fin_date', y=['gasoil_consomme', 'lubrif_consomme'], barmode='group', labels={'value': 'Litres', 'fin_date': 'Période'})
-            st.plotly_chart(fig_bar, use_container_width=True)
+            df_pil['Gasoil Consommé (L)'] = df_pil['debut_gasoil'] + df_pil['livre_gasoil'] - df_pil['fin_gasoil']
+            df_pil['Lubrifiant Consommé (L)'] = df_pil['debut_lubrif'] + df_pil['livre_lubrif'] - df_pil['fin_lubrif']
+            fig2 = px.bar(df_pil, x='fin_date', y=['Gasoil Consommé (L)', 'Lubrifiant Consommé (L)'], barmode='group', color_discrete_sequence=['#1B3668', '#0097A7'])
+            fig2.update_layout(margin=dict(t=20, b=20, l=10, r=10), height=340)
+            st.plotly_chart(fig2, use_container_width=True)
         else:
-            st.info("Saisissez un relevé dans 'Consommation Pilotine (DPM_FO_28)' pour afficher le graphique.")
+            st.info("Ajoutez un relevé dans 'Consommation Pilotine (DPM_FO_28)' pour visualiser la courbe.")
 
 # ==============================================================================
 # MODULE 2 : INFRASTRUCTURES PERMANENTES (DPM_FO_23)
 # ==============================================================================
 elif menu == "🏗️ Infrastructures (DPM_FO_23)":
-    st.subheader("🏗️ Registre des Infrastructures de La DPM (`DPM_FO_23`)")
-    tab1, tab2, tab3 = st.tabs(["📋 Registre & Export", "➕ Nouvel Enregistrement", "✏️ Modifier (Tous les paramètres) / 🗑️ Supprimer"])
+    st.markdown('<div class="form-header">🏗️ DPM_FO_23 — Le Registre des Infrastructures de La DPM</div>', unsafe_allow_html=True)
+    tab1, tab2, tab3 = st.tabs(["📋 Registre & Édition Rapide", "➕ Nouvelle Infrastructure", "✏️ Modifier (Tous les paramètres) / 🗑️ Supprimer"])
 
     with tab1:
         df_infra = pd.read_sql_query("SELECT * FROM fo23_infrastructures", conn)
-        st.dataframe(df_infra, use_container_width=True)
-        if not df_infra.empty:
-            st.download_button("📥 Exporter DPM_FO_23 (Excel)", data=to_excel_single(df_infra, "DPM_FO_23"), file_name="DPM_FO_23_Infrastructures.xlsx")
+        st.caption("💡 Astuce : Double-cliquez sur une cellule pour modifier directement sa valeur, puis cliquez sur 'Sauvegarder l'édition rapide'.")
+        edited_infra = st.data_editor(df_infra, use_container_width=True, disabled=["id"], num_rows="fixed", key="ed_fo23")
+        c_btn1, c_btn2 = st.columns([1, 2])
+        if c_btn1.button("💾 Sauvegarder l'édition rapide (FO_23)"):
+            for _, r in edited_infra.iterrows():
+                c.execute('''UPDATE fo23_infrastructures SET
+                    infrastructure=?, besoins_reparation=?, reparations_commentaire=?,
+                    reparations_cout=?, criticite=?, date_mise_a_jour=?, observations=? WHERE id=?''',
+                    (r['infrastructure'], r['besoins_reparation'], r['reparations_commentaire'], float(r['reparations_cout'] or 0), r['criticite'], str(r['date_mise_a_jour']), r['observations'], int(r['id'])))
+            conn.commit()
+            st.success("Tableau mis à jour avec succès !")
+            st.rerun()
+        c_btn2.download_button(
+            "📥 Exporter DPM_FO_23 Officiel avec Logo NWM (.xlsx)",
+            data=generate_official_excel_pack("FO_23"),
+            file_name=f"DPM_FO_23_Infrastructures_{date.today()}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
     with tab2:
         with st.form("add_fo23"):
             c1, c2 = st.columns(2)
             with c1:
-                infra = st.text_input("Infrastructure (ex: Station de Pilotage, Quai Pilotine, Vigie)")
+                infra = st.text_input("Infrastructure (ex: Locaux Station Pilotage, Vigie, Quai Pilotine)")
                 besoins = st.text_area("Besoins de réparation")
                 criticite = st.selectbox("Niveau de Criticité ISPO", ["Normal", "Moyen", "Critique - Urgent"])
             with c2:
-                rep_comm = st.text_area("Réparations réalisées - Commentaire")
-                rep_cout = st.number_input("Réparations réalisées - Coût (MAD)", min_value=0.0, step=100.0)
+                rep_comm = st.text_area("Les réparations réalisées — Commentaire")
+                rep_cout = st.number_input("Les réparations réalisées — Coût (MAD)", min_value=0.0, step=100.0)
                 dt_maj = st.date_input("Date de relevé", date.today())
                 obs = st.text_input("Observations")
             if st.form_submit_button("➕ Enregistrer dans DPM_FO_23"):
@@ -425,53 +1211,48 @@ elif menu == "🏗️ Infrastructures (DPM_FO_23)":
                     reparations_cout, criticite, date_mise_a_jour, observations
                 ) VALUES (?,?,?,?,?,?,?)''', (infra, besoins, rep_comm, rep_cout, criticite, str(dt_maj), obs))
                 conn.commit()
-                st.success("Infrastructure enregistrée avec succès !")
+                st.success("Infrastructure ajoutée !")
                 st.rerun()
 
     with tab3:
         df_infra = pd.read_sql_query("SELECT * FROM fo23_infrastructures", conn)
         if not df_infra.empty:
-            id_sel = st.selectbox(
-                "Sélectionner la ligne à modifier ou supprimer",
-                df_infra['id'].tolist(),
-                format_func=lambda x: f"ID #{x} — {df_infra[df_infra['id']==x]['infrastructure'].values[0]}"
-            )
+            id_sel = st.selectbox("Sélectionner la ligne à modifier ou supprimer", df_infra['id'].tolist(), format_func=lambda x: f"ID #{x} — {df_infra[df_infra['id']==x]['infrastructure'].values[0]}")
             row = df_infra[df_infra['id'] == id_sel].iloc[0]
             with st.form("edit_fo23"):
                 c1, c2 = st.columns(2)
+                crit_list = ["Normal", "Moyen", "Critique - Urgent"]
                 with c1:
                     u_infra = st.text_input("Infrastructure", value=str(row['infrastructure']))
                     u_besoins = st.text_area("Besoins de réparation", value=str(row['besoins_reparation']))
-                    crit_list = ["Normal", "Moyen", "Critique - Urgent"]
-                    u_crit = st.selectbox("Niveau de Criticité ISPO", crit_list, index=crit_list.index(row['criticite']) if row['criticite'] in crit_list else 0)
+                    u_crit = st.selectbox("Criticité", crit_list, index=crit_list.index(row['criticite']) if row['criticite'] in crit_list else 0)
                 with c2:
-                    u_comm = st.text_area("Réparations réalisées - Commentaire", value=str(row['reparations_commentaire']))
-                    u_cout = st.number_input("Réparations réalisées - Coût (MAD)", min_value=0.0, value=float(row['reparations_cout']))
+                    u_comm = st.text_area("Réparations réalisées — Commentaire", value=str(row['reparations_commentaire']))
+                    u_cout = st.number_input("Réparations réalisées — Coût (MAD)", min_value=0.0, value=float(row['reparations_cout']))
                     u_dt = st.date_input("Date de relevé", value=parse_date_safe(row['date_mise_a_jour']))
                     u_obs = st.text_input("Observations", value=str(row['observations']))
-
                 b1, b2 = st.columns(2)
-                if b1.form_submit_button("💾 Enregistrer toutes les modifications"):
+                if b1.form_submit_button("💾 Mettre à jour tous les paramètres"):
                     c.execute('''UPDATE fo23_infrastructures SET
                         infrastructure=?, besoins_reparation=?, reparations_commentaire=?,
-                        reparations_cout=?, criticite=?, date_mise_a_jour=?, observations=?
-                        WHERE id=?''', (u_infra, u_besoins, u_comm, u_cout, u_crit, str(u_dt), u_obs, id_sel))
+                        reparations_cout=?, criticite=?, date_mise_a_jour=?, observations=? WHERE id=?''',
+                        (u_infra, u_besoins, u_comm, u_cout, u_crit, str(u_dt), u_obs, id_sel))
                     conn.commit()
-                    st.success("Modification enregistrée !")
+                    st.success("Mis à jour !")
                     st.rerun()
                 if b2.form_submit_button("🗑️ Supprimer définitivement"):
                     c.execute("DELETE FROM fo23_infrastructures WHERE id=?", (id_sel,))
                     conn.commit()
-                    st.warning("Enregistrement supprimé.")
+                    st.warning("Supprimé.")
                     st.rerun()
         else:
-            st.info("Aucune infrastructure enregistrée.")
+            st.info("Aucun enregistrement disponible.")
 
 # ==============================================================================
 # MODULE 3 : ÉQUIPEMENTS, VIGIE, AMEUBLEMENT & VHF (DPM_FO_24 / DPM_FO_25)
 # ==============================================================================
 elif menu == "📡 Équipements, Vigie, Ameublement & VHF (FO_24/25)":
-    st.subheader("📡 Registre des Équipements : Ameublement (`FO_24`), Vigie (`FO_25`), VHF, PPU, Simulateur & Voitures")
+    st.markdown('<div class="form-header">📡 DPM_FO_24 & DPM_FO_25 — Registre des Équipements (Ameublement, Vigie, VHF, PPUs, Simulateur, Voitures)</div>', unsafe_allow_html=True)
     classes_pr02 = [
         "Radios Portatifs VHF",
         "Équipements de la Vigie (DPM_FO_25)",
@@ -483,15 +1264,54 @@ elif menu == "📡 Équipements, Vigie, Ameublement & VHF (FO_24/25)":
     ]
     etats_list = ["Bon", "Moyen", "À réparer", "Hors service"]
 
-    tab1, tab2, tab3 = st.tabs(["📋 Registre & Export", "➕ Nouvel Équipement", "✏️ Modifier (Tous les paramètres) / 🗑️ Supprimer"])
+    tab1, tab2, tab3 = st.tabs(["📋 Registre, Filtres & Exports Officiels", "➕ Nouvel Équipement", "✏️ Modifier (Tous les paramètres) / 🗑️ Supprimer"])
 
     with tab1:
         df_eq = pd.read_sql_query("SELECT * FROM fo24_25_equipements", conn)
         filtre_classe = st.multiselect("Filtrer par Classe (`DMP_PR_02`)", options=classes_pr02, default=classes_pr02)
         df_filtered = df_eq[df_eq['classe'].isin(filtre_classe)] if not df_eq.empty else df_eq
-        st.dataframe(df_filtered, use_container_width=True)
-        if not df_filtered.empty:
-            st.download_button("📥 Exporter la sélection (Excel)", data=to_excel_single(df_filtered, "Equipements_DPM"), file_name="DPM_FO_24_25_Equipements.xlsx")
+
+        st.caption("💡 Astuce : Double-cliquez sur une cellule pour modifier directement une valeur puis cliquez sur 'Sauvegarder l'édition rapide'.")
+        edited_eq = st.data_editor(df_filtered, use_container_width=True, disabled=["id"], num_rows="fixed", key="ed_fo24_25")
+
+        if st.button("💾 Sauvegarder l'édition rapide du tableau"):
+            for _, r in edited_eq.iterrows():
+                c.execute('''UPDATE fo24_25_equipements SET
+                    classe=?, article=?, reference_serie=?, cout_estime=?,
+                    util_etat=?, util_quantite=?, util_emplacement=?,
+                    stock_quantite=?, stock_localisation=?,
+                    besoin_achat=?, besoin_reparation=?,
+                    date_reception=?, echeance_garantie=?, observations=? WHERE id=?''', (
+                    r['classe'], r['article'], r['reference_serie'], float(r['cout_estime'] or 0),
+                    r['util_etat'], int(r['util_quantite'] or 0), r['util_emplacement'],
+                    int(r['stock_quantite'] or 0), r['stock_localisation'],
+                    r['besoin_achat'], r['besoin_reparation'],
+                    str(r['date_reception']), str(r['echeance_garantie']), r['observations'], int(r['id'])
+                ))
+            conn.commit()
+            st.success("Modifications enregistrées !")
+            st.rerun()
+
+        st.markdown("##### 📥 Téléchargements au Format Officiel Nador West Med (avec Logo)")
+        ex1, ex2, ex3 = st.columns(3)
+        ex1.download_button(
+            "📥 Exporter DPM_FO_24 (Ameublement Officiel)",
+            data=generate_official_excel_pack("FO_24"),
+            file_name=f"DPM_FO_24_Ameublement_{date.today()}.xlsx",
+            use_container_width=True
+        )
+        ex2.download_button(
+            "📥 Exporter DPM_FO_25 (Vigie Officiel)",
+            data=generate_official_excel_pack("FO_25"),
+            file_name=f"DPM_FO_25_Vigie_{date.today()}.xlsx",
+            use_container_width=True
+        )
+        ex3.download_button(
+            "📥 Exporter Registre Complet (VHF + Toutes Classes)",
+            data=generate_official_excel_pack("FO_24_25_ALL"),
+            file_name=f"DPM_Registre_Equipements_Complet_{date.today()}.xlsx",
+            use_container_width=True
+        )
 
     with tab2:
         with st.form("add_fo24_25"):
@@ -499,23 +1319,23 @@ elif menu == "📡 Équipements, Vigie, Ameublement & VHF (FO_24/25)":
             with c1:
                 classe = st.selectbox("Classe de Ressource (`DMP_PR_02`)", classes_pr02)
                 article = st.text_input("Article / Désignation")
-                ref_serie = st.text_input("Numéro de Série / Code Article")
-                cout_est = st.number_input("Coût Estimé / Prix d'achat HT (MAD)", min_value=0.0, step=100.0)
+                ref_serie = st.text_input("Numéro de Série / Référence")
+                cout_est = st.number_input("Coût Estimé (MAD)", min_value=0.0, step=100.0)
             with c2:
                 st.markdown("**En Utilisation**")
-                u_etat = st.selectbox("État (En utilisation)", etats_list)
-                u_qte = st.number_input("Quantité en utilisation", min_value=0, value=1)
-                u_emp = st.text_input("Emplacement / Affectation", value="Station de Pilotage")
+                u_etat = st.selectbox("Etat (En utilisation)", etats_list)
+                u_qte = st.number_input("Quantité (En utilisation)", min_value=0, value=1)
+                u_emp = st.text_input("Emplacement", value="Station de Pilotage")
                 st.markdown("**En Stock**")
-                s_qte = st.number_input("Quantité en stock", min_value=0, value=0)
-                s_loc = st.text_input("Localisation stock", value="Magasin DPM")
+                s_qte = st.number_input("Quantité (En stock)", min_value=0, value=0)
+                s_loc = st.text_input("Localisation", value="Magasin DPM")
             with c3:
-                st.markdown("**Besoins & Traçabilité ISPO**")
-                b_achat = st.text_input("Besoin d'Achat", value="Aucun")
-                b_repa = st.text_input("Besoin de Réparation", value="Aucune")
+                st.markdown("**Besoins & Garantie**")
+                b_achat = st.text_input("Besoins — Achat", value="Non")
+                b_repa = st.text_input("Besoins — Réparation", value="Non")
                 dt_rec = st.date_input("Date de Réception", date.today())
                 dt_gar = st.date_input("Échéance Garantie / Révision", date.today() + timedelta(days=730))
-                obs = st.text_area("Observations (N° BC, BL, Facture, PV)")
+                obs = st.text_area("Observations")
 
             if st.form_submit_button("➕ Enregistrer l'équipement"):
                 c.execute('''INSERT INTO fo24_25_equipements (
@@ -530,36 +1350,36 @@ elif menu == "📡 Équipements, Vigie, Ameublement & VHF (FO_24/25)":
                     b_achat, b_repa, str(dt_rec), str(dt_gar), obs
                 ))
                 conn.commit()
-                st.success("Équipement ajouté avec succès !")
+                st.success("Équipement enregistré !")
                 st.rerun()
 
     with tab3:
         df_eq = pd.read_sql_query("SELECT * FROM fo24_25_equipements", conn)
         if not df_eq.empty:
             id_sel = st.selectbox(
-                "Sélectionner l'ID de l'équipement à modifier ou supprimer",
+                "Sélectionner l'équipement à modifier ou supprimer",
                 df_eq['id'].tolist(),
-                format_func=lambda x: f"ID #{x} — [{df_eq[df_eq['id']==x]['classe'].values[0]}] {df_eq[df_eq['id']==x]['article'].values[0]} ({df_eq[df_eq['id']==x]['reference_serie'].values[0]})"
+                format_func=lambda x: f"ID #{x} — [{df_eq[df_eq['id']==x]['classe'].values[0]}] {df_eq[df_eq['id']==x]['article'].values[0]}"
             )
             row = df_eq[df_eq['id'] == id_sel].iloc[0]
             with st.form("edit_fo24_25"):
                 c1, c2, c3 = st.columns(3)
                 with c1:
-                    u_classe = st.selectbox("Classe de Ressource", classes_pr02, index=classes_pr02.index(row['classe']) if row['classe'] in classes_pr02 else 0)
-                    u_article = st.text_input("Article / Désignation", value=str(row['article']))
-                    u_ref = st.text_input("Numéro de Série / Code", value=str(row['reference_serie']))
-                    u_cout = st.number_input("Coût Estimé / Prix HT (MAD)", min_value=0.0, value=float(row['cout_estime']))
+                    u_classe = st.selectbox("Classe", classes_pr02, index=classes_pr02.index(row['classe']) if row['classe'] in classes_pr02 else 0)
+                    u_article = st.text_input("Article", value=str(row['article']))
+                    u_ref = st.text_input("Numéro de Série / Réf.", value=str(row['reference_serie']))
+                    u_cout = st.number_input("Coût Estimé (MAD)", min_value=0.0, value=float(row['cout_estime']))
                 with c2:
-                    u_etat = st.selectbox("État (En utilisation)", etats_list, index=etats_list.index(row['util_etat']) if row['util_etat'] in etats_list else 0)
-                    u_qte = st.number_input("Quantité en utilisation", min_value=0, value=int(row['util_quantite']))
-                    u_emp = st.text_input("Emplacement / Affectation", value=str(row['util_emplacement']))
-                    s_qte = st.number_input("Quantité en stock", min_value=0, value=int(row['stock_quantite']))
+                    u_etat = st.selectbox("Etat (En utilisation)", etats_list, index=etats_list.index(row['util_etat']) if row['util_etat'] in etats_list else 0)
+                    u_qte = st.number_input("Quantité (En utilisation)", min_value=0, value=int(row['util_quantite']))
+                    u_emp = st.text_input("Emplacement", value=str(row['util_emplacement']))
+                    s_qte = st.number_input("Quantité (En stock)", min_value=0, value=int(row['stock_quantite']))
                     s_loc = st.text_input("Localisation stock", value=str(row['stock_localisation']))
                 with c3:
-                    b_achat = st.text_input("Besoin d'Achat", value=str(row['besoin_achat']))
-                    b_repa = st.text_input("Besoin de Réparation", value=str(row['besoin_reparation']))
+                    b_achat = st.text_input("Besoins — Achat", value=str(row['besoin_achat']))
+                    b_repa = st.text_input("Besoins — Réparation", value=str(row['besoin_reparation']))
                     dt_rec = st.date_input("Date de Réception", value=parse_date_safe(row['date_reception']))
-                    dt_gar = st.date_input("Échéance Garantie / Révision", value=parse_date_safe(row['echeance_garantie']))
+                    dt_gar = st.date_input("Échéance Garantie", value=parse_date_safe(row['echeance_garantie']))
                     obs = st.text_area("Observations", value=str(row['observations']))
 
                 b1, b2 = st.columns(2)
@@ -569,16 +1389,15 @@ elif menu == "📡 Équipements, Vigie, Ameublement & VHF (FO_24/25)":
                         util_etat=?, util_quantite=?, util_emplacement=?,
                         stock_quantite=?, stock_localisation=?,
                         besoin_achat=?, besoin_reparation=?,
-                        date_reception=?, echeance_garantie=?, observations=?
-                        WHERE id=?''', (
+                        date_reception=?, echeance_garantie=?, observations=? WHERE id=?''', (
                         u_classe, u_article, u_ref, u_cout,
                         u_etat, u_qte, u_emp, s_qte, s_loc,
                         b_achat, b_repa, str(dt_rec), str(dt_gar), obs, id_sel
                     ))
                     conn.commit()
-                    st.success("Tous les paramètres de l'équipement ont été mis à jour !")
+                    st.success("Tous les paramètres ont été mis à jour !")
                     st.rerun()
-                if b2.form_submit_button("🗑️ Supprimer définitivement cet équipement"):
+                if b2.form_submit_button("🗑️ Supprimer définitivement"):
                     c.execute("DELETE FROM fo24_25_equipements WHERE id=?", (id_sel,))
                     conn.commit()
                     st.warning("Équipement supprimé.")
@@ -590,8 +1409,8 @@ elif menu == "📡 Équipements, Vigie, Ameublement & VHF (FO_24/25)":
 # MODULE 4 : CONSOMMABLES GÉNÉRAUX & PHARMACIE (DPM_FO_26 & DPM_FO_27)
 # ==============================================================================
 elif menu == "📦 Consommables & Pharmacie (FO_26/27)":
-    st.subheader("📦 État des Consommations Générales (`DPM_FO_26`) & Pharmaceutiques (`DPM_FO_27`)")
-    tab1, tab2, tab3 = st.tabs(["📋 États & Calculs Automatiques", "➕ Ajouter un Article", "✏️ Modifier (Tous les paramètres) / 🗑️ Supprimer"])
+    st.markdown('<div class="form-header">📦 DPM_FO_26 & DPM_FO_27 — État des Consommations Générales & Pharmaceutiques</div>', unsafe_allow_html=True)
+    tab1, tab2, tab3 = st.tabs(["📋 États & Exports Officiels (FO_26 / FO_27)", "➕ Nouvel Article", "✏️ Modifier (Tous les paramètres) / 🗑️ Supprimer"])
 
     with tab1:
         df_c = pd.read_sql_query("SELECT * FROM fo26_27_consommables", conn)
@@ -599,35 +1418,45 @@ elif menu == "📦 Consommables & Pharmacie (FO_26/27)":
             df_c['Coût Début'] = df_c['debut_qte'] * df_c['debut_prix_unit']
             df_c['Coût Livré'] = df_c['livre_qte'] * df_c['livre_prix_unit']
             df_c['Coût Fin'] = df_c['fin_qte'] * df_c['fin_prix_unit']
-            df_c['Qté Consommée'] = (df_c['debut_qte'] + df_c['livre_qte']) - df_c['fin_qte']
-            df_c['Coût des Consommations (MAD)'] = (df_c['Coût Début'] + df_c['Coût Livré']) - df_c['Coût Fin']
-
-            st.metric("Coût Total des Consommations de la Période", f"{df_c['Coût des Consommations (MAD)'].sum():,.2f} MAD")
+            df_c['Cout des Consommations'] = (df_c['Coût Début'] + df_c['Coût Livré']) - df_c['Coût Fin']
             st.dataframe(df_c, use_container_width=True)
-            st.download_button("📥 Exporter FO_26 / FO_27 (Excel)", data=to_excel_single(df_c, "FO_26_27_Consommations"), file_name="DPM_FO_26_27_Consommables.xlsx")
         else:
-            st.info("Aucun consommable ou produit pharmaceutique enregistré.")
+            st.info("Aucun article enregistré.")
+
+        ex1, ex2 = st.columns(2)
+        ex1.download_button(
+            "📥 Exporter DPM_FO_26 Officiel avec Logo NWM",
+            data=generate_official_excel_pack("FO_26"),
+            file_name=f"DPM_FO_26_Consommations_Generales_{date.today()}.xlsx",
+            use_container_width=True
+        )
+        ex2.download_button(
+            "📥 Exporter DPM_FO_27 Officiel avec Logo NWM",
+            data=generate_official_excel_pack("FO_27"),
+            file_name=f"DPM_FO_27_Consommations_Pharmaceutiques_{date.today()}.xlsx",
+            use_container_width=True
+        )
 
     with tab2:
         with st.form("add_fo26_27"):
             c1, c2, c3 = st.columns(3)
             with c1:
-                cat = st.selectbox("Registre", ["Consommations Générales (FO_26)", "Pharmacie (FO_27)"])
-                art = st.text_input("Article / Médicament")
-                emp = st.text_input("Emplacement", value="Station de Pilotage / Infirmerie")
+                cat = st.selectbox("Formulaire Officiel", ["Consommations Générales (FO_26)", "Pharmacie (FO_27)"])
+                art = st.text_input("Article")
+                emp = st.text_input("Emplacement", value="Station de Pilotage")
                 obs = st.text_input("Observation")
             with c2:
-                st.markdown("**Existant Début & Livré**")
-                d_qte = st.number_input("Qté Début de période", min_value=0, value=0)
-                d_pu = st.number_input("Prix Unitaire Début (MAD)", min_value=0.0, value=0.0)
-                d_exp = st.date_input("Date Expiration (Stock Début - si Pharmacie)", date.today() + timedelta(days=365))
-                l_qte = st.number_input("Qté Livrée durant la période", min_value=0, value=0)
-                l_pu = st.number_input("Prix Unitaire Livré (MAD)", min_value=0.0, value=0.0)
+                st.markdown("**Existant début du période & Livré**")
+                d_qte = st.number_input("Qtité Début", min_value=0, value=0)
+                d_pu = st.number_input("Prix unit Début (MAD)", min_value=0.0, value=0.0)
+                d_exp = st.date_input("Date Expir Début (Si FO_27)", date.today() + timedelta(days=365))
+                l_qte = st.number_input("Qtité Livrée", min_value=0, value=0)
+                l_pu = st.number_input("Prix unit Livré (MAD)", min_value=0.0, value=0.0)
             with c3:
-                st.markdown("**Existant Fin de Période**")
-                f_qte = st.number_input("Qté Fin de période", min_value=0, value=0)
-                f_pu = st.number_input("Prix Unitaire Fin (MAD)", min_value=0.0, value=0.0)
-                f_exp = st.date_input("Date Expiration (Stock Fin - si Pharmacie)", date.today() + timedelta(days=365))
+                st.markdown("**Existant Fin de la période**")
+                f_qte = st.number_input("Qtité Fin", min_value=0, value=0)
+                f_pu = st.number_input("Prix unit Fin (MAD)", min_value=0.0, value=0.0)
+                f_exp = st.date_input("Date Expir Fin (Si FO_27)", date.today() + timedelta(days=365))
 
             if st.form_submit_button("➕ Enregistrer"):
                 c.execute('''INSERT INTO fo26_27_consommables (
@@ -639,104 +1468,99 @@ elif menu == "📦 Consommables & Pharmacie (FO_26/27)":
                     cat, art, emp, d_qte, d_pu, str(d_exp), l_qte, l_pu, f_qte, f_pu, str(f_exp), obs
                 ))
                 conn.commit()
-                st.success("Article enregistré avec succès !")
+                st.success("Enregistré !")
                 st.rerun()
 
     with tab3:
         df_c = pd.read_sql_query("SELECT * FROM fo26_27_consommables", conn)
         if not df_c.empty:
-            id_sel = st.selectbox(
-                "Sélectionner l'ID à modifier ou supprimer",
-                df_c['id'].tolist(),
-                format_func=lambda x: f"ID #{x} — [{df_c[df_c['id']==x]['categorie'].values[0]}] {df_c[df_c['id']==x]['article'].values[0]}"
-            )
+            id_sel = st.selectbox("Sélectionner l'ID à modifier ou supprimer", df_c['id'].tolist(), format_func=lambda x: f"ID #{x} — [{df_c[df_c['id']==x]['categorie'].values[0]}] {df_c[df_c['id']==x]['article'].values[0]}")
             row = df_c[df_c['id'] == id_sel].iloc[0]
             with st.form("edit_fo26_27"):
                 c1, c2, c3 = st.columns(3)
                 cats = ["Consommations Générales (FO_26)", "Pharmacie (FO_27)"]
                 with c1:
-                    u_cat = st.selectbox("Registre", cats, index=cats.index(row['categorie']) if row['categorie'] in cats else 0)
+                    u_cat = st.selectbox("Formulaire", cats, index=cats.index(row['categorie']) if row['categorie'] in cats else 0)
                     u_art = st.text_input("Article", value=str(row['article']))
                     u_emp = st.text_input("Emplacement", value=str(row['emplacement']))
                     u_obs = st.text_input("Observation", value=str(row['observations']))
                 with c2:
-                    u_dqte = st.number_input("Qté Début", min_value=0, value=int(row['debut_qte']))
-                    u_dpu = st.number_input("PU Début (MAD)", min_value=0.0, value=float(row['debut_prix_unit']))
+                    u_dqte = st.number_input("Qtité Début", min_value=0, value=int(row['debut_qte']))
+                    u_dpu = st.number_input("Prix unit Début", min_value=0.0, value=float(row['debut_prix_unit']))
                     u_dexp = st.date_input("Date Expir Début", value=parse_date_safe(row['debut_date_expir']))
-                    u_lqte = st.number_input("Qté Livrée", min_value=0, value=int(row['livre_qte']))
-                    u_lpu = st.number_input("PU Livré (MAD)", min_value=0.0, value=float(row['livre_prix_unit']))
+                    u_lqte = st.number_input("Qtité Livrée", min_value=0, value=int(row['livre_qte']))
+                    u_lpu = st.number_input("Prix unit Livré", min_value=0.0, value=float(row['livre_prix_unit']))
                 with c3:
-                    u_fqte = st.number_input("Qté Fin", min_value=0, value=int(row['fin_qte']))
-                    u_fpu = st.number_input("PU Fin (MAD)", min_value=0.0, value=float(row['fin_prix_unit']))
+                    u_fqte = st.number_input("Qtité Fin", min_value=0, value=int(row['fin_qte']))
+                    u_fpu = st.number_input("Prix unit Fin", min_value=0.0, value=float(row['fin_prix_unit']))
                     u_fexp = st.date_input("Date Expir Fin", value=parse_date_safe(row['fin_date_expir']))
-
                 b1, b2 = st.columns(2)
                 if b1.form_submit_button("💾 Enregistrer toutes les modifications"):
                     c.execute('''UPDATE fo26_27_consommables SET
                         categorie=?, article=?, emplacement=?,
                         debut_qte=?, debut_prix_unit=?, debut_date_expir=?,
                         livre_qte=?, livre_prix_unit=?,
-                        fin_qte=?, fin_prix_unit=?, fin_date_expir=?, observations=?
-                        WHERE id=?''', (
-                        u_cat, u_art, u_emp, u_dqte, u_dpu, str(u_dexp),
-                        u_lqte, u_lpu, u_fqte, u_fpu, str(u_fexp), u_obs, id_sel
+                        fin_qte=?, fin_prix_unit=?, fin_date_expir=?, observations=? WHERE id=?''', (
+                        u_cat, u_art, u_emp, u_dqte, u_dpu, str(u_dexp), u_lqte, u_lpu, u_fqte, u_fpu, str(u_fexp), u_obs, id_sel
                     ))
                     conn.commit()
-                    st.success("Modification enregistrée !")
+                    st.success("Mis à jour !")
                     st.rerun()
                 if b2.form_submit_button("🗑️ Supprimer définitivement"):
                     c.execute("DELETE FROM fo26_27_consommables WHERE id=?", (id_sel,))
                     conn.commit()
-                    st.warning("Article supprimé.")
+                    st.warning("Supprimé.")
                     st.rerun()
         else:
-            st.info("Aucun enregistrement à modifier.")
+            st.info("Aucun article à modifier.")
 
 # ==============================================================================
 # MODULE 5 : REGISTRE DE LA CONSOMMATION DE LA PILOTINE (DPM_FO_28)
 # ==============================================================================
 elif menu == "🚤 Consommation Pilotine (DPM_FO_28)":
-    st.subheader("🚤 Registre de la Consommation de la Pilotine (`DPM_FO_28`)")
-    tab1, tab2, tab3 = st.tabs(["📋 Registre & Bilan Périodique", "➕ Nouveau Relevé", "✏️ Modifier (Tous les paramètres) / 🗑️ Supprimer"])
+    st.markdown('<div class="form-header">🚤 DPM_FO_28 — Le Registre de La Consommation de la Pilotine</div>', unsafe_allow_html=True)
+    tab1, tab2, tab3 = st.tabs(["📋 Registre & Export Officiel FO_28", "➕ Nouveau Relevé", "✏️ Modifier (Tous les paramètres) / 🗑️ Supprimer"])
 
     with tab1:
         df_p = pd.read_sql_query("SELECT * FROM fo28_pilotine", conn)
         if not df_p.empty:
             df_p['Gasoil Consommé (L)'] = df_p['debut_gasoil'] + df_p['livre_gasoil'] - df_p['fin_gasoil']
-            df_p['Lubrifiant Consommé (L)'] = df_p['debut_lubrif'] + df_p['livre_lubrif'] - df_p['fin_lubrif']
-
+            df_p['Lubrif Consommé (L)'] = df_p['debut_lubrif'] + df_p['livre_lubrif'] - df_p['fin_lubrif']
             k1, k2, k3, k4 = st.columns(4)
             k1.metric("Consommation Totale Gasoil", f"{df_p['Gasoil Consommé (L)'].sum():,.1f} L")
-            k2.metric("Consommation Moyenne Gasoil / Période", f"{df_p['Gasoil Consommé (L)'].mean():,.1f} L")
-            k3.metric("Consommation Totale Lubrifiant", f"{df_p['Lubrifiant Consommé (L)'].sum():,.1f} L")
-            k4.metric("Consommation Moyenne Lubrifiant", f"{df_p['Lubrifiant Consommé (L)'].mean():,.1f} L")
-
+            k2.metric("Consommation Moyenne Gasoil", f"{df_p['Gasoil Consommé (L)'].mean():,.1f} L")
+            k3.metric("Consommation Totale Lubrifiant", f"{df_p['Lubrif Consommé (L)'].sum():,.1f} L")
+            k4.metric("Consommation Moyenne Lubrifiant", f"{df_p['Lubrif Consommé (L)'].mean():,.1f} L")
             st.dataframe(df_p, use_container_width=True)
-            st.download_button("📥 Exporter DPM_FO_28 (Excel)", data=to_excel_single(df_p, "DPM_FO_28_Pilotine"), file_name="DPM_FO_28_Pilotine.xlsx")
         else:
-            st.info("Aucun relevé de consommation pilotine enregistré.")
+            st.info("Aucun relevé enregistré.")
+
+        st.download_button(
+            "📥 Exporter DPM_FO_28 Officiel avec Logo NWM (.xlsx)",
+            data=generate_official_excel_pack("FO_28"),
+            file_name=f"DPM_FO_28_Consommation_Pilotine_{date.today()}.xlsx"
+        )
 
     with tab2:
         with st.form("add_fo28"):
-            nom_pil = st.text_input("Identification de la Pilotine", value="Pilotine NWM 1")
+            nom_pil = st.text_input("Nom de la Pilotine", value="Pilotine NWM 1")
             c1, c2, c3 = st.columns(3)
             with c1:
-                st.markdown("**Existant Début de Période**")
+                st.markdown("**Existant début du période**")
                 d_dt = st.date_input("Date Début", date.today() - timedelta(days=30))
                 d_gas = st.number_input("Gasoil Début (L)", min_value=0.0, value=0.0)
-                d_lub = st.number_input("Lubrifiant Début (L)", min_value=0.0, value=0.0)
+                d_lub = st.number_input("Lubrif Début (L)", min_value=0.0, value=0.0)
             with c2:
-                st.markdown("**Livré durant la Période**")
-                l_dt = st.date_input("Date Livraison", date.today() - timedelta(days=15))
+                st.markdown("**Livré durant la période**")
+                l_dt = st.date_input("Date Livré", date.today() - timedelta(days=15))
                 l_gas = st.number_input("Gasoil Livré (L)", min_value=0.0, value=0.0)
-                l_lub = st.number_input("Lubrifiant Livré (L)", min_value=0.0, value=0.0)
+                l_lub = st.number_input("Lubrif Livré (L)", min_value=0.0, value=0.0)
             with c3:
-                st.markdown("**Existant Fin de Période**")
+                st.markdown("**Existant Fin de la période**")
                 f_dt = st.date_input("Date Fin", date.today())
                 f_gas = st.number_input("Gasoil Fin (L)", min_value=0.0, value=0.0)
-                f_lub = st.number_input("Lubrifiant Fin (L)", min_value=0.0, value=0.0)
+                f_lub = st.number_input("Lubrif Fin (L)", min_value=0.0, value=0.0)
             obs = st.text_input("Observation")
-
             if st.form_submit_button("➕ Enregistrer le relevé FO_28"):
                 c.execute('''INSERT INTO fo28_pilotine (
                     nom_pilotine, debut_date, debut_gasoil, debut_lubrif,
@@ -746,92 +1570,88 @@ elif menu == "🚤 Consommation Pilotine (DPM_FO_28)":
                     nom_pil, str(d_dt), d_gas, d_lub, str(l_dt), l_gas, l_lub, str(f_dt), f_gas, f_lub, obs
                 ))
                 conn.commit()
-                st.success("Relevé Pilotine enregistré !")
+                st.success("Relevé enregistré !")
                 st.rerun()
 
     with tab3:
         df_p = pd.read_sql_query("SELECT * FROM fo28_pilotine", conn)
         if not df_p.empty:
-            id_sel = st.selectbox(
-                "Sélectionner le relevé à modifier ou supprimer",
-                df_p['id'].tolist(),
-                format_func=lambda x: f"ID #{x} — {df_p[df_p['id']==x]['nom_pilotine'].values[0]} (Fin: {df_p[df_p['id']==x]['fin_date'].values[0]})"
-            )
+            id_sel = st.selectbox("Sélectionner le relevé à modifier ou supprimer", df_p['id'].tolist(), format_func=lambda x: f"ID #{x} — {df_p[df_p['id']==x]['nom_pilotine'].values[0]} ({df_p[df_p['id']==x]['fin_date'].values[0]})")
             row = df_p[df_p['id'] == id_sel].iloc[0]
             with st.form("edit_fo28"):
-                u_nom = st.text_input("Identification de la Pilotine", value=str(row['nom_pilotine']))
+                u_nom = st.text_input("Pilotine", value=str(row['nom_pilotine']))
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     u_ddt = st.date_input("Date Début", value=parse_date_safe(row['debut_date']))
-                    u_dgas = st.number_input("Gasoil Début (L)", min_value=0.0, value=float(row['debut_gasoil']))
-                    u_dlub = st.number_input("Lubrifiant Début (L)", min_value=0.0, value=float(row['debut_lubrif']))
+                    u_dgas = st.number_input("Gasoil Début", min_value=0.0, value=float(row['debut_gasoil']))
+                    u_dlub = st.number_input("Lubrif Début", min_value=0.0, value=float(row['debut_lubrif']))
                 with c2:
-                    u_ldt = st.date_input("Date Livraison", value=parse_date_safe(row['livre_date']))
-                    u_lgas = st.number_input("Gasoil Livré (L)", min_value=0.0, value=float(row['livre_gasoil']))
-                    u_llub = st.number_input("Lubrifiant Livré (L)", min_value=0.0, value=float(row['livre_lubrif']))
+                    u_ldt = st.date_input("Date Livré", value=parse_date_safe(row['livre_date']))
+                    u_lgas = st.number_input("Gasoil Livré", min_value=0.0, value=float(row['livre_gasoil']))
+                    u_llub = st.number_input("Lubrif Livré", min_value=0.0, value=float(row['livre_lubrif']))
                 with c3:
                     u_fdt = st.date_input("Date Fin", value=parse_date_safe(row['fin_date']))
-                    u_fgas = st.number_input("Gasoil Fin (L)", min_value=0.0, value=float(row['fin_gasoil']))
-                    u_flub = st.number_input("Lubrifiant Fin (L)", min_value=0.0, value=float(row['fin_lubrif']))
+                    u_fgas = st.number_input("Gasoil Fin", min_value=0.0, value=float(row['fin_gasoil']))
+                    u_flub = st.number_input("Lubrif Fin", min_value=0.0, value=float(row['fin_lubrif']))
                 u_obs = st.text_input("Observation", value=str(row['observations']))
-
                 b1, b2 = st.columns(2)
                 if b1.form_submit_button("💾 Enregistrer toutes les modifications"):
                     c.execute('''UPDATE fo28_pilotine SET
                         nom_pilotine=?, debut_date=?, debut_gasoil=?, debut_lubrif=?,
                         livre_date=?, livre_gasoil=?, livre_lubrif=?,
-                        fin_date=?, fin_gasoil=?, fin_lubrif=?, observations=?
-                        WHERE id=?''', (
+                        fin_date=?, fin_gasoil=?, fin_lubrif=?, observations=? WHERE id=?''', (
                         u_nom, str(u_ddt), u_dgas, u_dlub, str(u_ldt), u_lgas, u_llub, str(u_fdt), u_fgas, u_flub, u_obs, id_sel
                     ))
                     conn.commit()
-                    st.success("Relevé mis à jour !")
+                    st.success("Mis à jour !")
                     st.rerun()
                 if b2.form_submit_button("🗑️ Supprimer définitivement"):
                     c.execute("DELETE FROM fo28_pilotine WHERE id=?", (id_sel,))
                     conn.commit()
-                    st.warning("Relevé supprimé.")
+                    st.warning("Supprimé.")
                     st.rerun()
         else:
-            st.info("Aucun relevé à modifier.")
+            st.info("Aucun relevé disponible.")
 
 # ==============================================================================
 # MODULE 6 : REGISTRE DES EPIs (DPM_FO_29)
 # ==============================================================================
 elif menu == "🦺 Registre des EPIs (DPM_FO_29)":
-    st.subheader("🦺 Registre des Équipements de Protection Individuelle (`DPM_FO_29`)")
+    st.markdown('<div class="form-header">🦺 DPM_FO_29 — Le Registre des EPIs</div>', unsafe_allow_html=True)
     etats_epi = ["Neuf", "Bon", "Moyen", "À remplacer"]
-    tab1, tab2, tab3 = st.tabs(["📋 Registre & Export", "➕ Nouvel EPI", "✏️ Modifier (Tous les paramètres) / 🗑️ Supprimer"])
+    tab1, tab2, tab3 = st.tabs(["📋 Registre & Export Officiel FO_29", "➕ Nouvel EPI", "✏️ Modifier (Tous les paramètres) / 🗑️ Supprimer"])
 
     with tab1:
         df_e = pd.read_sql_query("SELECT * FROM fo29_epis", conn)
         st.dataframe(df_e, use_container_width=True)
-        if not df_e.empty:
-            st.download_button("📥 Exporter DPM_FO_29 (Excel)", data=to_excel_single(df_e, "DPM_FO_29_EPIs"), file_name="DPM_FO_29_EPIs.xlsx")
+        st.download_button(
+            "📥 Exporter DPM_FO_29 Officiel avec Logo NWM (.xlsx)",
+            data=generate_official_excel_pack("FO_29"),
+            file_name=f"DPM_FO_29_Registre_EPIs_{date.today()}.xlsx"
+        )
 
     with tab2:
         with st.form("add_fo29"):
-            art = st.text_input("Article EPI (ex: Gilet de sauvetage gonflable 275N SOLAS, Casque marin, Chaussures de sécurité)")
+            art = st.text_input("Article (ex: Gilet de sauvetage 275N, Casque, Chaussures de sécurité)")
             c1, c2, c3 = st.columns(3)
             with c1:
-                st.markdown("**En Utilisation**")
-                u_nb = st.number_input("Nombre (En utilisation)", min_value=0, value=1)
-                u_et = st.selectbox("État (En utilisation)", etats_epi)
-                u_ec = st.date_input("Échéance Révision/Péremption (Util.)", date.today() + timedelta(days=365))
-                u_ct = st.number_input("Coût Utilisation (MAD)", min_value=0.0, value=0.0)
+                st.markdown("**En utilisation**")
+                u_nb = st.number_input("Nombre (Util.)", min_value=0, value=1)
+                u_et = st.selectbox("Etat (Util.)", etats_epi)
+                u_ec = st.date_input("Échéance (Util.)", date.today() + timedelta(days=365))
+                u_ct = st.number_input("Coût (Util. MAD)", min_value=0.0, value=0.0)
             with c2:
                 st.markdown("**En Stock**")
-                s_nb = st.number_input("Nombre (En stock)", min_value=0, value=0)
-                s_et = st.selectbox("État (En stock)", etats_epi)
+                s_nb = st.number_input("Nombre (Stock)", min_value=0, value=0)
+                s_et = st.selectbox("Etat (Stock)", etats_epi)
                 s_ec = st.date_input("Échéance (Stock)", date.today() + timedelta(days=730))
-                s_ct = st.number_input("Coût Stock (MAD)", min_value=0.0, value=0.0)
-                s_loc = st.text_input("Local de stockage", value="Vestiaire / Magasin DPM")
+                s_ct = st.number_input("Coût (Stock MAD)", min_value=0.0, value=0.0)
+                s_loc = st.text_input("Local", value="Magasin DPM")
             with c3:
                 st.markdown("**Besoins & Observations**")
-                b_ach = st.text_input("Besoins Achat", value="Aucun")
-                b_mnt = st.text_input("Besoins Maintenance / Certif.", value="Contrôle annuel")
+                b_ach = st.text_input("Besoins — Achat", value="Non")
+                b_mnt = st.text_input("Besoins — Maintenance", value="Contrôle annuel")
                 obs = st.text_area("Observations")
-
             if st.form_submit_button("➕ Enregistrer l'EPI"):
                 c.execute('''INSERT INTO fo29_epis (
                     article, util_nombre, util_etat, util_echeance, util_cout,
@@ -841,44 +1661,38 @@ elif menu == "🦺 Registre des EPIs (DPM_FO_29)":
                     art, u_nb, u_et, str(u_ec), u_ct, s_nb, s_et, str(s_ec), s_ct, s_loc, b_ach, b_mnt, obs
                 ))
                 conn.commit()
-                st.success("EPI enregistré avec succès !")
+                st.success("EPI enregistré !")
                 st.rerun()
 
     with tab3:
         df_e = pd.read_sql_query("SELECT * FROM fo29_epis", conn)
         if not df_e.empty:
-            id_sel = st.selectbox(
-                "Sélectionner l'ID de l'EPI à modifier ou supprimer",
-                df_e['id'].tolist(),
-                format_func=lambda x: f"ID #{x} — {df_e[df_e['id']==x]['article'].values[0]}"
-            )
+            id_sel = st.selectbox("Sélectionner l'EPI à modifier ou supprimer", df_e['id'].tolist(), format_func=lambda x: f"ID #{x} — {df_e[df_e['id']==x]['article'].values[0]}")
             row = df_e[df_e['id'] == id_sel].iloc[0]
             with st.form("edit_fo29"):
-                u_art = st.text_input("Article EPI", value=str(row['article']))
+                u_art = st.text_input("Article", value=str(row['article']))
                 c1, c2, c3 = st.columns(3)
                 with c1:
-                    u_nb = st.number_input("Nombre (En utilisation)", min_value=0, value=int(row['util_nombre']))
-                    u_et = st.selectbox("État (Util.)", etats_epi, index=etats_epi.index(row['util_etat']) if row['util_etat'] in etats_epi else 0)
+                    u_nb = st.number_input("Nombre (Util.)", min_value=0, value=int(row['util_nombre']))
+                    u_et = st.selectbox("Etat (Util.)", etats_epi, index=etats_epi.index(row['util_etat']) if row['util_etat'] in etats_epi else 0)
                     u_ec = st.date_input("Échéance (Util.)", value=parse_date_safe(row['util_echeance']))
-                    u_ct = st.number_input("Coût Utilisation (MAD)", min_value=0.0, value=float(row['util_cout']))
+                    u_ct = st.number_input("Coût (Util. MAD)", min_value=0.0, value=float(row['util_cout']))
                 with c2:
-                    s_nb = st.number_input("Nombre (En stock)", min_value=0, value=int(row['stock_nombre']))
-                    s_et = st.selectbox("État (Stock)", etats_epi, index=etats_epi.index(row['stock_etat']) if row['stock_etat'] in etats_epi else 0)
+                    s_nb = st.number_input("Nombre (Stock)", min_value=0, value=int(row['stock_nombre']))
+                    s_et = st.selectbox("Etat (Stock)", etats_epi, index=etats_epi.index(row['stock_etat']) if row['stock_etat'] in etats_epi else 0)
                     s_ec = st.date_input("Échéance (Stock)", value=parse_date_safe(row['stock_echeance']))
-                    s_ct = st.number_input("Coût Stock (MAD)", min_value=0.0, value=float(row['stock_cout']))
-                    s_loc = st.text_input("Local de stockage", value=str(row['stock_local']))
+                    s_ct = st.number_input("Coût (Stock MAD)", min_value=0.0, value=float(row['stock_cout']))
+                    s_loc = st.text_input("Local", value=str(row['stock_local']))
                 with c3:
-                    b_ach = st.text_input("Besoins Achat", value=str(row['besoin_achat']))
-                    b_mnt = st.text_input("Besoins Maintenance", value=str(row['besoin_maintenance']))
+                    b_ach = st.text_input("Besoins — Achat", value=str(row['besoin_achat']))
+                    b_mnt = st.text_input("Besoins — Maintenance", value=str(row['besoin_maintenance']))
                     obs = st.text_area("Observations", value=str(row['observations']))
-
                 b1, b2 = st.columns(2)
                 if b1.form_submit_button("💾 Enregistrer toutes les modifications"):
                     c.execute('''UPDATE fo29_epis SET
                         article=?, util_nombre=?, util_etat=?, util_echeance=?, util_cout=?,
                         stock_nombre=?, stock_etat=?, stock_echeance=?, stock_cout=?, stock_local=?,
-                        besoin_achat=?, besoin_maintenance=?, observations=?
-                        WHERE id=?''', (
+                        besoin_achat=?, besoin_maintenance=?, observations=? WHERE id=?''', (
                         u_art, u_nb, u_et, str(u_ec), u_ct, s_nb, s_et, str(s_ec), s_ct, s_loc, b_ach, b_mnt, obs, id_sel
                     ))
                     conn.commit()
@@ -896,129 +1710,110 @@ elif menu == "🦺 Registre des EPIs (DPM_FO_29)":
 # MODULE 7 : CHECKLISTS SPÉCIFICATIONS D'ACHAT & MAINTENANCE (CL_06 & CL_07)
 # ==============================================================================
 elif menu == "✅ Checklists Achats & Maintenance (CL_06/07)":
-    st.subheader("✅ Checklists des Spécifications d'Achat (`DPM_CL_06`) & Recommandations Maintenance/Utilisation (`DPM_CL_07`)")
-    tab1, tab2, tab3 = st.tabs(["📋 Fiches Checklists", "➕ Nouvelle Fiche Équipement", "✏️ Modifier (Tous les paramètres) / 🗑️ Supprimer"])
+    st.markdown('<div class="form-header">✅ DPM_CL_06 (Spécifications d\'Achat) & DPM_CL_07 (Recommandations d\'Utilisation et Maintenance)</div>', unsafe_allow_html=True)
+    tab1, tab2, tab3 = st.tabs(["📋 Checklists & Export Officiel CL_06 / CL_07", "➕ Nouvelle Fiche", "✏️ Modifier (Tous les paramètres) / 🗑️ Supprimer"])
 
     with tab1:
         df_cl = pd.read_sql_query("SELECT * FROM cl06_07_checklists", conn)
         st.dataframe(df_cl, use_container_width=True)
-        if not df_cl.empty:
-            st.download_button("📥 Exporter Checklists CL_06 & CL_07 (Excel)", data=to_excel_single(df_cl, "Checklists_CL06_07"), file_name="DPM_CL_06_07_Checklists.xlsx")
+        st.download_button(
+            "📥 Exporter DPM_CL_06 & DPM_CL_07 Officiels avec Logo NWM (.xlsx)",
+            data=generate_official_excel_pack("CL_06_07"),
+            file_name=f"DPM_CL_06_07_Checklists_{date.today()}.xlsx"
+        )
 
     with tab2:
         with st.form("add_cl"):
-            tp = st.selectbox("Type de Checklist", ["DPM_CL_06 & DPM_CL_07 (Critique)", "DPM_CL_06 (Spécifications d'Achat)", "DPM_CL_07 (Utilisation & Maintenance)"])
-            eq = st.text_input("Équipement / Rubrique Critique")
+            eq = st.text_input("Rubrique / Équipement")
             spec = st.text_area("Principales Spécifications d'Achat (DPM_CL_06)")
-            rec_u = st.text_area("Principales Recommandations d'Utilisation (DPM_CL_07)")
-            rec_m = st.text_area("Principales Recommandations de Maintenance (DPM_CL_07)")
-            obs = st.text_input("Observations / Références Normatives")
-            if st.form_submit_button("➕ Enregistrer la Checklist"):
+            rec_m = st.text_area("Les Principales Recommandations de Maintenance (DPM_CL_07)")
+            rec_u = st.text_area("Les Principales Recommandations d'utilisation (DPM_CL_07)")
+            obs = st.text_input("Observations")
+            if st.form_submit_button("➕ Enregistrer"):
                 c.execute('''INSERT INTO cl06_07_checklists (
                     type_checklist, equipement_rubrique, specifications_achat,
                     recommandations_utilisation, recommandations_maintenance, observations
-                ) VALUES (?,?,?,?,?,?)''', (tp, eq, spec, rec_u, rec_m, obs))
+                ) VALUES (?,?,?,?,?,?)''', ("DPM_CL_06 & DPM_CL_07", eq, spec, rec_u, rec_m, obs))
                 conn.commit()
-                st.success("Checklist enregistrée !")
+                st.success("Fiche enregistrée !")
                 st.rerun()
 
     with tab3:
         df_cl = pd.read_sql_query("SELECT * FROM cl06_07_checklists", conn)
         if not df_cl.empty:
-            id_sel = st.selectbox(
-                "Sélectionner la fiche à modifier ou supprimer",
-                df_cl['id'].tolist(),
-                format_func=lambda x: f"ID #{x} — {df_cl[df_cl['id']==x]['equipement_rubrique'].values[0]}"
-            )
+            id_sel = st.selectbox("Sélectionner la fiche à modifier ou supprimer", df_cl['id'].tolist(), format_func=lambda x: f"ID #{x} — {df_cl[df_cl['id']==x]['equipement_rubrique'].values[0]}")
             row = df_cl[df_cl['id'] == id_sel].iloc[0]
             with st.form("edit_cl"):
-                tps = ["DPM_CL_06 & DPM_CL_07 (Critique)", "DPM_CL_06 (Spécifications d'Achat)", "DPM_CL_07 (Utilisation & Maintenance)"]
-                u_tp = st.selectbox("Type de Checklist", tps, index=tps.index(row['type_checklist']) if row['type_checklist'] in tps else 0)
-                u_eq = st.text_input("Équipement / Rubrique", value=str(row['equipement_rubrique']))
-                u_spec = st.text_area("Principales Spécifications d'Achat (DPM_CL_06)", value=str(row['specifications_achat']))
-                u_rec_u = st.text_area("Principales Recommandations d'Utilisation (DPM_CL_07)", value=str(row['recommandations_utilisation']))
-                u_rec_m = st.text_area("Principales Recommandations de Maintenance (DPM_CL_07)", value=str(row['recommandations_maintenance']))
+                u_eq = st.text_input("Rubrique / Équipement", value=str(row['equipement_rubrique']))
+                u_spec = st.text_area("Spécifications d'Achat (DPM_CL_06)", value=str(row['specifications_achat']))
+                u_recm = st.text_area("Recommandations de Maintenance (DPM_CL_07)", value=str(row['recommandations_maintenance']))
+                u_recu = st.text_area("Recommandations d'utilisation (DPM_CL_07)", value=str(row['recommandations_utilisation']))
                 u_obs = st.text_input("Observations", value=str(row['observations']))
-
                 b1, b2 = st.columns(2)
                 if b1.form_submit_button("💾 Enregistrer toutes les modifications"):
                     c.execute('''UPDATE cl06_07_checklists SET
-                        type_checklist=?, equipement_rubrique=?, specifications_achat=?,
-                        recommandations_utilisation=?, recommandations_maintenance=?, observations=?
-                        WHERE id=?''', (u_tp, u_eq, u_spec, u_rec_u, u_rec_m, u_obs, id_sel))
+                        equipement_rubrique=?, specifications_achat=?,
+                        recommandations_utilisation=?, recommandations_maintenance=?, observations=? WHERE id=?''',
+                        (u_eq, u_spec, u_recu, u_recm, u_obs, id_sel))
                     conn.commit()
-                    st.success("Checklist mise à jour !")
+                    st.success("Fiche mise à jour !")
                     st.rerun()
                 if b2.form_submit_button("🗑️ Supprimer définitivement"):
                     c.execute("DELETE FROM cl06_07_checklists WHERE id=?", (id_sel,))
                     conn.commit()
-                    st.warning("Checklist supprimée.")
+                    st.warning("Fiche supprimée.")
                     st.rerun()
 
 # ==============================================================================
 # MODULE 8 : FORMULAIRE DE PRÉPARATION DU BUDGET (DPM_FO_30)
 # ==============================================================================
 elif menu == "💰 Préparation du Budget (DPM_FO_30)":
-    st.subheader("💰 Formulaire de Préparation du Budget de La DPM (`DPM_FO_30`)")
-
-    tab1, tab2, tab3 = st.tabs(["📊 Synthèse Budgétaire Officielle (FO_30)", "➕ Ajouter une Ligne Budgétaire", "✏️ Modifier (Tous les paramètres) / 🗑️ Supprimer"])
+    st.markdown('<div class="form-header">💰 DPM_FO_30 — Le Formulaire de Préparation du Budget de La DPM</div>', unsafe_allow_html=True)
+    tab1, tab2, tab3 = st.tabs(["📊 Formulaire Officiel & Export FO_30", "➕ Ajouter une Ligne Budgétaire", "✏️ Modifier (Tous les paramètres) / 🗑️ Supprimer"])
 
     with tab1:
         df_b = pd.read_sql_query("SELECT * FROM fo30_budget_lignes", conn)
         if not df_b.empty:
             df_b['Variation Budget (MAD)'] = df_b['cout_estime_n'] - df_b['cout_annee_prec']
-
             df_conso_b = df_b[df_b['type_ligne'] == 'Consommation (Générale / Pharmacie)']
             df_invest_b = df_b[df_b['type_ligne'] == 'Investissement']
 
-            st.markdown("#### 1. Partie Consommations Générales / Consommations Pharmacie")
-            st.dataframe(df_conso_b, use_container_width=True)
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Besoins Annuels Consommations (N)", f"{df_conso_b['cout_estime_n'].sum():,.2f} MAD")
-            c2.metric("Utilisés Année Précédente (N-1)", f"{df_conso_b['cout_annee_prec'].sum():,.2f} MAD")
-            c3.metric("Variation Budget Consommations", f"{df_conso_b['Variation Budget (MAD)'].sum():+,.2f} MAD")
+            st.markdown("##### 1. Consommations Générale / Consommation Pharmacie")
+            st.dataframe(df_conso_b[['id', 'classe_rubrique', 'article_investissement', 'prix_unitaire_estime', 'besoin_unites_estime', 'cout_estime_n', 'qte_annee_prec', 'cout_annee_prec', 'Variation Budget (MAD)', 'observations']], use_container_width=True)
 
-            st.markdown("---")
-            st.markdown("#### 2. Partie Investissements (Formations / EPIs / Tenue / Peinture / Construction / Vigie / VHF / PCs...)")
-            st.dataframe(df_invest_b, use_container_width=True)
+            st.markdown("##### 2. Partie Investissements : Formations / EPIs / Tenue / Peinture / Construction / Vigie / PCs / VHF")
+            st.dataframe(df_invest_b[['id', 'classe_rubrique', 'article_investissement', 'justification', 'cout_estime_n', 'cout_annee_prec', 'Variation Budget (MAD)', 'observations']], use_container_width=True)
 
             tot_n = df_b['cout_estime_n'].sum()
             tot_prec = df_b['cout_annee_prec'].sum()
-            tot_var = tot_n - tot_prec
-
-            st.markdown("---")
-            st.markdown("#### 3. Récapitulatif Global (`DPM_FO_30`)")
             k1, k2, k3 = st.columns(3)
-            k1.metric("Budget Année Précédente", f"{tot_prec:,.2f} MAD")
-            k2.metric("Budget Année en Objet (Total Estimé)", f"{tot_n:,.2f} MAD")
-            k3.metric("Variation Globale du Budget", f"{tot_var:+,.2f} MAD")
+            k1.metric("Budget année précédente", f"{tot_prec:,.2f} MAD")
+            k2.metric("Budget année en objet", f"{tot_n:,.2f} MAD")
+            k3.metric("Variation Budget", f"{tot_n - tot_prec:+,.2f} MAD")
 
-            st.download_button(
-                "📥 Exporter le Formulaire Officiel DPM_FO_30 (Excel)",
-                data=to_excel_single(df_b, "DPM_FO_30_Budget"),
-                file_name="DPM_FO_30_Preparation_Budget.xlsx"
-            )
-        else:
-            st.info("Aucune ligne budgétaire enregistrée.")
+        st.download_button(
+            "📥 Exporter DPM_FO_30 Officiel avec Logo NWM (.xlsx)",
+            data=generate_official_excel_pack("FO_30"),
+            file_name=f"DPM_FO_30_Preparation_Budget_{date.today()}.xlsx"
+        )
 
     with tab2:
         with st.form("add_fo30"):
             c1, c2 = st.columns(2)
             with c1:
-                tl = st.selectbox("Partie du Budget (`DPM_FO_30`)", ["Investissement", "Consommation (Générale / Pharmacie)"])
+                tl = st.selectbox("Section du formulaire `DPM_FO_30`", ["Investissement", "Consommation (Générale / Pharmacie)"])
                 cl = st.selectbox("Classe / Rubrique", [
                     "Radios Portatifs VHF", "EPIs", "Tenue", "Formations", "Vigie",
-                    "PCs & Informatique", "Peinture & Infrastructures", "Consommation Générale", "Consommation Pharmacie", "Autre"
+                    "PCs & Informatique", "Peinture & Construction", "Consommation Générale", "Consommation Pharmacie", "Autre"
                 ])
-                art = st.text_input("Article ou Intitulé de l'Investissement")
-                justif = st.text_area("Justifications (Pour la partie Investissements)")
+                art = st.text_input("Article ou Investissement")
+                justif = st.text_area("Justifications (Pour les Investissements)")
             with c2:
                 pu = st.number_input("Prix Unitaire Estimé (MAD)", min_value=0.0, value=0.0, step=100.0)
-                qte_n = st.number_input("Besoins Estimés (Unités)", min_value=0.0, value=1.0, step=1.0)
-                qte_prec = st.number_input("Quantité Consommée Année Précédente (Unités)", min_value=0.0, value=0.0)
-                cout_prec = st.number_input("Coût Année Précédente (MAD)", min_value=0.0, value=0.0)
+                qte_n = st.number_input("Besoins annuels estimés (Unités)", min_value=0.0, value=1.0)
+                qte_prec = st.number_input("Quantité consommée année précédente", min_value=0.0, value=0.0)
+                cout_prec = st.number_input("Coût année précédente (MAD)", min_value=0.0, value=0.0)
                 obs = st.text_input("Observations")
-
             if st.form_submit_button("➕ Enregistrer dans DPM_FO_30"):
                 cout_n = pu * qte_n
                 c.execute('''INSERT INTO fo30_budget_lignes (
@@ -1029,45 +1824,39 @@ elif menu == "💰 Préparation du Budget (DPM_FO_30)":
                     tl, cl, art, justif, pu, qte_n, cout_n, qte_prec, cout_prec, obs
                 ))
                 conn.commit()
-                st.success(f"Ligne budgétaire ajoutée (Coût calculé : {cout_n:,.2f} MAD) !")
+                st.success("Ligne budgétaire enregistrée !")
                 st.rerun()
 
     with tab3:
         df_b = pd.read_sql_query("SELECT * FROM fo30_budget_lignes", conn)
         if not df_b.empty:
-            id_sel = st.selectbox(
-                "Sélectionner la ligne budgétaire à modifier ou supprimer",
-                df_b['id'].tolist(),
-                format_func=lambda x: f"ID #{x} — [{df_b[df_b['id']==x]['type_ligne'].values[0]}] {df_b[df_b['id']==x]['article_investissement'].values[0]}"
-            )
+            id_sel = st.selectbox("Sélectionner la ligne à modifier ou supprimer", df_b['id'].tolist(), format_func=lambda x: f"ID #{x} — [{df_b[df_b['id']==x]['type_ligne'].values[0]}] {df_b[df_b['id']==x]['article_investissement'].values[0]}")
             row = df_b[df_b['id'] == id_sel].iloc[0]
             with st.form("edit_fo30"):
                 c1, c2 = st.columns(2)
                 tls = ["Investissement", "Consommation (Générale / Pharmacie)"]
                 cls_list = [
                     "Radios Portatifs VHF", "EPIs", "Tenue", "Formations", "Vigie",
-                    "PCs & Informatique", "Peinture & Infrastructures", "Consommation Générale", "Consommation Pharmacie", "Autre"
+                    "PCs & Informatique", "Peinture & Construction", "Consommation Générale", "Consommation Pharmacie", "Autre"
                 ]
                 with c1:
-                    u_tl = st.selectbox("Partie du Budget", tls, index=tls.index(row['type_ligne']) if row['type_ligne'] in tls else 0)
-                    u_cl = st.selectbox("Classe / Rubrique", cls_list, index=cls_list.index(row['classe_rubrique']) if row['classe_rubrique'] in cls_list else 0)
+                    u_tl = st.selectbox("Section", tls, index=tls.index(row['type_ligne']) if row['type_ligne'] in tls else 0)
+                    u_cl = st.selectbox("Classe", cls_list, index=cls_list.index(row['classe_rubrique']) if row['classe_rubrique'] in cls_list else 0)
                     u_art = st.text_input("Article / Investissement", value=str(row['article_investissement']))
                     u_just = st.text_area("Justifications", value=str(row['justification']))
                 with c2:
                     u_pu = st.number_input("Prix Unitaire Estimé (MAD)", min_value=0.0, value=float(row['prix_unitaire_estime']))
-                    u_qten = st.number_input("Besoins Estimés (Unités)", min_value=0.0, value=float(row['besoin_unites_estime']))
-                    u_qteprec = st.number_input("Quantité Année Précédente", min_value=0.0, value=float(row['qte_annee_prec']))
-                    u_coutprec = st.number_input("Coût Année Précédente (MAD)", min_value=0.0, value=float(row['cout_annee_prec']))
+                    u_qten = st.number_input("Besoins estimés (Unités)", min_value=0.0, value=float(row['besoin_unites_estime']))
+                    u_qteprec = st.number_input("Quantité année précédente", min_value=0.0, value=float(row['qte_annee_prec']))
+                    u_coutprec = st.number_input("Coût année précédente (MAD)", min_value=0.0, value=float(row['cout_annee_prec']))
                     u_obs = st.text_input("Observations", value=str(row['observations']))
-
                 b1, b2 = st.columns(2)
                 if b1.form_submit_button("💾 Enregistrer toutes les modifications"):
                     u_coutn = u_pu * u_qten
                     c.execute('''UPDATE fo30_budget_lignes SET
                         type_ligne=?, classe_rubrique=?, article_investissement=?, justification=?,
                         prix_unitaire_estime=?, besoin_unites_estime=?, cout_estime_n=?,
-                        qte_annee_prec=?, cout_annee_prec=?, observations=?
-                        WHERE id=?''', (
+                        qte_annee_prec=?, cout_annee_prec=?, observations=? WHERE id=?''', (
                         u_tl, u_cl, u_art, u_just, u_pu, u_qten, u_coutn, u_qteprec, u_coutprec, u_obs, id_sel
                     ))
                     conn.commit()
@@ -1076,7 +1865,5 @@ elif menu == "💰 Préparation du Budget (DPM_FO_30)":
                 if b2.form_submit_button("🗑️ Supprimer définitivement"):
                     c.execute("DELETE FROM fo30_budget_lignes WHERE id=?", (id_sel,))
                     conn.commit()
-                    st.warning("Ligne budgétaire supprimée.")
+                    st.warning("Supprimé.")
                     st.rerun()
-        else:
-            st.info("Aucune ligne budgétaire à modifier.")
