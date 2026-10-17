@@ -37,14 +37,36 @@ if menu == "Tableau de Bord ISPO":
     st.title("Tableau de Bord & Alertes ISPO")
     st.write("Indicateur de Performance : Disponibilité des ressources matérielles critiques (DPM_FI_02).")
     
+    # 1. Récupération dynamique des données depuis la base
+    df_equip = pd.read_sql_query("SELECT * FROM equipements", conn)
+    df_epi = pd.read_sql_query("SELECT * FROM consommables WHERE type='EPI'", conn)
+    
+    # 2. Calcul automatique des péremptions à 30 jours
+    aujourd_hui = pd.Timestamp(datetime.today().date())
+    limite_30j = aujourd_hui + pd.Timedelta(days=30)
+    
+    nb_alertes = 0
+    if not df_epi.empty:
+        # Conversion de la colonne SQL en format Date Pandas
+        df_epi['date_expiration'] = pd.to_datetime(df_epi['date_expiration'])
+        # Filtrage : EPI expirant dans moins de 30 jours mais pas encore expirés
+        epi_en_alerte = df_epi[(df_epi['date_expiration'] <= limite_30j) & (df_epi['date_expiration'] >= aujourd_hui)]
+        nb_alertes = len(epi_en_alerte)
+    
+    # 3. Affichage des KPIs dynamiques
     col1, col2, col3 = st.columns(3)
-    col1.metric("Équipements Actifs", "24")
-    col2.metric("Alertes Péremption (30j)", "2", delta="-1", delta_color="inverse")
+    col1.metric("Équipements Actifs", len(df_equip))
+    col2.metric("Alertes Péremption (30j)", nb_alertes, delta=f"{nb_alertes} à traiter" if nb_alertes > 0 else "0", delta_color="inverse" if nb_alertes > 0 else "normal")
     col3.metric("Anomalies Signalées", "0")
     
+    # 4. Déclenchement conditionnel de l'alarme
     st.subheader("Alertes Critiques (EPI & Pharmacie)")
-    st.warning("⚠️ 2 EPI (Gilets de sauvetage) arrivent à expiration dans moins de 30 jours. Renouvellement requis.")
-
+    if nb_alertes > 0:
+        st.error(f"⚠️ {nb_alertes} article(s) critique(s) arrivent à expiration dans moins de 30 jours.")
+        st.dataframe(epi_en_alerte[['article', 'quantite_stock', 'date_expiration']], use_container_width=True)
+    else:
+        st.success("✅ Aucun équipement critique n'arrive à expiration prochainement. (Indicateur ISPO conforme)")
+        
 # --- 4. MODULE : GESTION DES ÉQUIPEMENTS (VHF, etc.) ---
 elif menu == "Gestion des Équipements":
     st.title("Gestion des Équipements (Remplace FO_24, FO_25)")
