@@ -1223,7 +1223,7 @@ if menu == "📊 Tableau de Bord ISPO (DPM_FI_02)":
                 labels={'cout_estime': 'Valeur (MAD)', 'classe': ''},
                 color_discrete_sequence=['#1B3668']
             )
-            fig_val.update_traces(textPosition='outside', cliponaxis=False)
+            fig_val.update_traces(textposition='outside', cliponaxis=False)
             fig_val.update_layout(
                 height=320,
                 margin=dict(t=10, b=20, l=10, r=40),
