@@ -424,7 +424,7 @@ def seed_initial_data():
         ))
 
         # Dotation Vigie (FO_25) & Ameublement (FO_24) pour alimenter les exports et graphiques
-         vigie_items = [
+        vigie_items = [
             ("Équipements de la Vigie (DPM_FO_25)", "Station de Base VHF Marine Fixe ICOM IC-M605 + Antennes", "VIG-VHF-01", 28500.00, "Bon", 2, "Console Vigie NWM", 0, "Local Technique", "Non", "Non", "2026-02-10", "2028-02-10", "Veille permanente Canal 16 / Canal 12 Pilotage"),
             ("Équipements de la Vigie (DPM_FO_25)", "Récepteur AIS Classe A & Écran de Supervision Trafic VTS/DPM", "VIG-AIS-01", 42000.00, "Bon", 1, "Vigie Pilotage", 0, "-", "Non", "Non", "2026-02-15", "2028-02-15", "Suivi temps réel approches Nador West Med"),
             ("Équipements de la Vigie (DPM_FO_25)", "Jumelles Marines Stabilisées Fujinon 14x40 Techno-Stabi", "VIG-OPT-02", 14500.00, "Bon", 2, "Passerelle Vigie", 1, "Armoire Optique", "Non", "Non", "2026-03-01", "2028-03-01", "Observation visuelle chenal et digue"),
